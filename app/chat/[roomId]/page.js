@@ -14,7 +14,9 @@ export default function ChatRoomPage() {
   const [newMessage, setNewMessage] = useState('');
   const [conversationName, setConversationName] = useState('');
   const [showCodeModal, setShowCodeModal] = useState(false);
+  const [lastFetchTimestamp, setLastFetchTimestamp] = useState(Date.now());
   const messagesEndRef = useRef(null);
+  const pollingIntervalRef = useRef(null);
 
   // Double-clic pour sortir du chat vers /notes
   useDoubleClickTrigger(() => router.push('/notes'));
@@ -22,6 +24,16 @@ export default function ChatRoomPage() {
   useEffect(() => {
     loadConversationInfo();
     loadMessages();
+
+    // Démarrer le polling pour les nouveaux messages
+    startPolling();
+
+    return () => {
+      // Nettoyer le polling à la sortie
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
   }, [roomId]);
 
   useEffect(() => {
@@ -60,14 +72,20 @@ export default function ChatRoomPage() {
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
 
+    const messageContent = newMessage;
+    setNewMessage(''); // Vider immédiatement pour UX réactive
+
     try {
       const message = {
         id: `${roomId}_${Date.now()}`,
         roomId: roomId,
-        content: newMessage,
+        content: messageContent,
         timestamp: new Date().toISOString(),
         isSent: true,
       };
+
+      // Afficher immédiatement le message localement
+      setMessages(prev => [...prev, message]);
 
       // Sauvegarder dans IndexedDB
       const db = await openDB('chat', 2);
@@ -75,19 +93,88 @@ export default function ChatRoomPage() {
       const store = transaction.objectStore('messages');
       store.add(message);
 
-      setMessages([...messages, message]);
-      setNewMessage('');
-
       // Mettre à jour le dernier message dans la liste des conversations
-      updateLastMessage(newMessage);
+      updateLastMessage(messageContent);
 
-      // Simuler l'envoi au serveur (à implémenter plus tard)
-      // await fetch('/api/messages', {
-      //   method: 'POST',
-      //   body: JSON.stringify({ roomId, content: newMessage }),
-      // });
+      // Envoyer au serveur pour synchronisation
+      await fetch(`/api/chat/${roomId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: messageContent,
+          isSent: true
+        }),
+      });
+
+      // Marquer le timestamp pour éviter de récupérer notre propre message
+      setLastFetchTimestamp(Date.now());
     } catch (error) {
       console.error('Erreur lors de l\'envoi du message:', error);
+    }
+  };
+
+  const startPolling = () => {
+    // Polling toutes les 3 secondes
+    pollingIntervalRef.current = setInterval(() => {
+      fetchNewMessages();
+    }, 3000);
+
+    // Premier fetch immédiat
+    fetchNewMessages();
+  };
+
+  const fetchNewMessages = async () => {
+    try {
+      const response = await fetch(`/api/chat/${roomId}?since=${lastFetchTimestamp}`);
+      if (!response.ok) return;
+
+      const data = await response.json();
+
+      if (data.messages && data.messages.length > 0) {
+        // Merger les nouveaux messages avec les existants
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          const newMessages = data.messages.filter(m => !existingIds.has(m.id));
+
+          if (newMessages.length > 0) {
+            // Sauvegarder dans IndexedDB
+            saveMessagesToIndexedDB(newMessages);
+
+            // Mettre à jour le timestamp
+            setLastFetchTimestamp(Date.now());
+
+            return [...prev, ...newMessages].sort((a, b) =>
+              new Date(a.timestamp) - new Date(b.timestamp)
+            );
+          }
+          return prev;
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors du polling:', error);
+    }
+  };
+
+  const saveMessagesToIndexedDB = async (newMessages) => {
+    try {
+      const db = await openDB('chat', 2);
+      const transaction = db.transaction(['messages'], 'readwrite');
+      const store = transaction.objectStore('messages');
+
+      for (const message of newMessages) {
+        // Vérifier si le message existe déjà
+        const existingMessage = await new Promise((resolve) => {
+          const request = store.get(message.id);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => resolve(null);
+        });
+
+        if (!existingMessage) {
+          store.add({ ...message, isSent: false }); // Messages reçus
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde des messages:', error);
     }
   };
 

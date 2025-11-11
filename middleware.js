@@ -12,7 +12,7 @@ export default authMiddleware({
     '/icon-512x512.svg',
     '/sw.js'
   ],
-  ignoredRoutes: ['/api/cleanup', '/api/messages', '/api/pair'], // Routes publiques pour le cron et le chat
+  ignoredRoutes: ['/api/cleanup', '/api/messages', '/api/pair', '/api/chat(.*)'], // Routes publiques pour le cron et le chat
 });
 
 // Configuration par défaut de Clerk pour éviter les conflits
