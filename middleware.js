@@ -14,9 +14,7 @@ export default authMiddleware({
   ignoredRoutes: ['/api/cleanup'], // Route publique pour le cron
 });
 
+// Configuration par défaut de Clerk pour éviter les conflits
 export const config = {
-  matcher: [
-    // Exclure les fichiers Next.js internes et statiques
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ['/((?!.+\\.[\\w]+$|_next).*)', '/', '/(api|trpc)(.*)'],
 };
