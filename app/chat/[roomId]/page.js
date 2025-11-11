@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { PanicWrapper } from '../../../components/PanicWrapper';
+import { useDoubleClickTrigger } from '../../../hooks/useDoubleClickTrigger';
 
 export default function ChatRoomPage() {
   const router = useRouter();
@@ -14,6 +15,9 @@ export default function ChatRoomPage() {
   const [conversationName, setConversationName] = useState('');
   const [showCodeModal, setShowCodeModal] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // Double-clic pour sortir du chat vers /notes
+  useDoubleClickTrigger(() => router.push('/notes'));
 
   useEffect(() => {
     loadConversationInfo();
@@ -125,6 +129,36 @@ export default function ChatRoomPage() {
     alert('Code copié ! Partagez-le avec votre contact.');
   };
 
+  const clearMessages = async () => {
+    if (!confirm('Effacer tous les messages de cette conversation ? Cette action est irréversible.')) {
+      return;
+    }
+
+    try {
+      const db = await openDB('chat', 2);
+      const transaction = db.transaction(['messages'], 'readwrite');
+      const store = transaction.objectStore('messages');
+      const index = store.index('roomId');
+      const request = index.openCursor(IDBKeyRange.only(roomId));
+
+      request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          cursor.delete();
+          cursor.continue();
+        }
+      };
+
+      // Vider l'affichage local
+      setMessages([]);
+
+      // Mettre à jour le dernier message dans la liste
+      updateLastMessage(null);
+    } catch (error) {
+      console.error('Erreur lors de la suppression des messages:', error);
+    }
+  };
+
   return (
     <PanicWrapper>
       <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -142,12 +176,20 @@ export default function ChatRoomPage() {
               <p className="text-xs opacity-75">Code: {roomId}</p>
             </div>
           </div>
-          <button
-            onClick={() => setShowCodeModal(true)}
-            className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm"
-          >
-            Partager code
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowCodeModal(true)}
+              className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm"
+            >
+              Partager
+            </button>
+            <button
+              onClick={clearMessages}
+              className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm"
+            >
+              Effacer
+            </button>
+          </div>
         </div>
 
         {/* Messages */}

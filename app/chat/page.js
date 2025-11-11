@@ -3,23 +3,65 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PanicWrapper } from '../../components/PanicWrapper';
+import { useDoubleClickTrigger } from '../../hooks/useDoubleClickTrigger';
 
 export default function ChatListPage() {
   const router = useRouter();
   const [conversations, setConversations] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [newConversationName, setNewConversationName] = useState('');
   const [joinCode, setJoinCode] = useState('');
+  const [ephemeralMode, setEphemeralMode] = useState(false);
+
+  // Double-clic pour sortir du chat vers /notes
+  useDoubleClickTrigger(() => {
+    // Si mode éphémère activé, effacer tout avant de sortir
+    if (ephemeralMode) {
+      clearAllData();
+    }
+    router.push('/notes');
+  });
 
   useEffect(() => {
     loadConversations();
+    loadSettings();
   }, []);
 
   const loadConversations = () => {
     const savedConversations = localStorage.getItem('conversations');
     if (savedConversations) {
       setConversations(JSON.parse(savedConversations));
+    }
+  };
+
+  const loadSettings = () => {
+    const savedEphemeral = localStorage.getItem('ephemeralMode');
+    if (savedEphemeral) {
+      setEphemeralMode(savedEphemeral === 'true');
+    }
+  };
+
+  const toggleEphemeralMode = () => {
+    const newValue = !ephemeralMode;
+    setEphemeralMode(newValue);
+    localStorage.setItem('ephemeralMode', newValue.toString());
+  };
+
+  const clearAllData = async () => {
+    try {
+      // Effacer toutes les conversations
+      localStorage.removeItem('conversations');
+      setConversations([]);
+
+      // Effacer tous les messages de IndexedDB
+      const db = await openDB('chat', 2);
+      const transaction = db.transaction(['messages'], 'readwrite');
+      const store = transaction.objectStore('messages');
+      store.clear();
+    } catch (error) {
+      console.error('Erreur lors du nettoyage des données:', error);
     }
   };
 
@@ -129,9 +171,17 @@ export default function ChatListPage() {
     <PanicWrapper>
       <div className="min-h-screen bg-gray-100">
         {/* Header */}
-        <div className="bg-green-500 text-white p-4">
-          <h1 className="text-xl font-bold">SecureChat</h1>
-          <p className="text-sm opacity-75">Conversations privées</p>
+        <div className="bg-green-500 text-white p-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">SecureChat</h1>
+            <p className="text-sm opacity-75">Conversations privées</p>
+          </div>
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm"
+          >
+            Paramètres
+          </button>
         </div>
 
         {/* Content */}
@@ -249,6 +299,59 @@ export default function ChatListPage() {
                   className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
                 >
                   Rejoindre
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Settings Modal */}
+        {showSettingsModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full">
+              <h2 className="text-xl font-bold mb-4">Paramètres</h2>
+
+              <div className="space-y-4">
+                {/* Mode éphémère */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <h3 className="font-medium">Mode éphémère</h3>
+                    <p className="text-sm text-gray-600">Efface tout en quittant le chat</p>
+                  </div>
+                  <button
+                    onClick={toggleEphemeralMode}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      ephemeralMode ? 'bg-green-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        ephemeralMode ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Bouton effacer tout */}
+                <button
+                  onClick={() => {
+                    if (confirm('Effacer toutes les conversations et tous les messages ? Cette action est irréversible.')) {
+                      clearAllData();
+                      setShowSettingsModal(false);
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium"
+                >
+                  Effacer toutes les données
+                </button>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowSettingsModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+                >
+                  Fermer
                 </button>
               </div>
             </div>
