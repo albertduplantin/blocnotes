@@ -47,5 +47,16 @@ function openDB(name, version) {
     const request = indexedDB.open(name, version);
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      // Create object stores if they don't exist
+      if (!db.objectStoreNames.contains('messages')) {
+        const messagesStore = db.createObjectStore('messages', { keyPath: 'id' });
+        messagesStore.createIndex('timestamp', 'timestamp', { unique: false });
+      }
+      if (!db.objectStoreNames.contains('keys')) {
+        db.createObjectStore('keys', { keyPath: 'id' });
+      }
+    };
   });
 }
