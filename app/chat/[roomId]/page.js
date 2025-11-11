@@ -36,7 +36,7 @@ export default function ChatRoomPage() {
 
   const loadMessages = async () => {
     try {
-      const db = await openDB('chat', 1);
+      const db = await openDB('chat', 2);
       const transaction = db.transaction(['messages'], 'readonly');
       const store = transaction.objectStore('messages');
       const index = store.index('roomId');
@@ -66,7 +66,7 @@ export default function ChatRoomPage() {
       };
 
       // Sauvegarder dans IndexedDB
-      const db = await openDB('chat', 1);
+      const db = await openDB('chat', 2);
       const transaction = db.transaction(['messages'], 'readwrite');
       const store = transaction.objectStore('messages');
       store.add(message);
@@ -106,11 +106,16 @@ export default function ChatRoomPage() {
       request.onsuccess = () => resolve(request.result);
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
-        if (!db.objectStoreNames.contains('messages')) {
-          const messagesStore = db.createObjectStore('messages', { keyPath: 'id' });
-          messagesStore.createIndex('timestamp', 'timestamp', { unique: false });
-          messagesStore.createIndex('roomId', 'roomId', { unique: false });
+
+        // Supprimer l'ancien store si il existe (migration)
+        if (db.objectStoreNames.contains('messages')) {
+          db.deleteObjectStore('messages');
         }
+
+        // Créer le nouveau store avec les bons index
+        const messagesStore = db.createObjectStore('messages', { keyPath: 'id' });
+        messagesStore.createIndex('timestamp', 'timestamp', { unique: false });
+        messagesStore.createIndex('roomId', 'roomId', { unique: false });
       };
     });
   };
