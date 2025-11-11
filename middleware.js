@@ -2,7 +2,7 @@ import { authMiddleware } from '@clerk/nextjs/server';
 
 export default authMiddleware({
   // Routes qui nécessitent une authentification
-  publicRoutes: ['/', '/notes'],
+  publicRoutes: ['/', '/notes', '/manifest.json', '/favicon.svg', '/icon-192x192.svg', '/icon-512x512.svg'],
   ignoredRoutes: ['/api/cleanup'], // Route publique pour le cron
 });
 

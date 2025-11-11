@@ -145,8 +145,10 @@ export default function ChatPage() {
       request.onsuccess = () => resolve(request.result);
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
+        // Create object stores if they don't exist
         if (!db.objectStoreNames.contains('messages')) {
-          db.createObjectStore('messages', { keyPath: 'id' });
+          const messagesStore = db.createObjectStore('messages', { keyPath: 'id' });
+          messagesStore.createIndex('timestamp', 'timestamp', { unique: false });
         }
         if (!db.objectStoreNames.contains('keys')) {
           db.createObjectStore('keys', { keyPath: 'id' });
