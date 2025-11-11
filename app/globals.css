@@ -1,10 +1,8 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@source "../../app/**/*.{js,ts,jsx,tsx,mdx}";
-@source "../../components/**/*.{js,ts,jsx,tsx,mdx}";
-@source "../../pages/**/*.{js,ts,jsx,tsx,mdx}";
-
-/* Styles globaux pour SecureNotes - Version CSS pure pour compatibilité maximale */
+/* Styles globaux pour SecureNotes */
 
 * {
   box-sizing: border-box;
