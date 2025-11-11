@@ -1,14 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useUser } from '@clerk/nextjs';
 import { QRPairing } from '../../components/QRPairing';
 import { MessageBubble } from '../../components/MessageBubble';
 import { PanicWrapper } from '../../components/PanicWrapper';
 import { encryptMessage, decryptMessage, deriveSharedSecret } from '../../utils/crypto';
 
 export default function ChatPage() {
-  const { user } = useUser();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [isPaired, setIsPaired] = useState(false);

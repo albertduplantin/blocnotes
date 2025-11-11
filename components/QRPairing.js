@@ -1,17 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useUser } from '@clerk/nextjs';
 import QRCode from 'qrcode.react';
 import { generateKeyPair, deriveSharedSecret } from '../utils/crypto';
 
 export function QRPairing({ onPair }) {
-  const { user } = useUser();
+  const [userId, setUserId] = useState('');
   const [publicKey, setPublicKey] = useState('');
   const [scannedData, setScannedData] = useState('');
   const [isGenerating, setIsGenerating] = useState(true);
 
   useEffect(() => {
+    // Générer ou récupérer l'ID utilisateur local
+    let localUserId = localStorage.getItem('userId');
+    if (!localUserId) {
+      localUserId = 'user_' + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('userId', localUserId);
+    }
+    setUserId(localUserId);
     generateKeys();
   }, []);
 
@@ -94,11 +100,11 @@ export function QRPairing({ onPair }) {
   };
 
 
-  if (isGenerating) {
+  if (isGenerating || !userId) {
     return <div className="text-center">Génération des clés...</div>;
   }
 
-  const qrData = `${user.id}:${publicKey}`;
+  const qrData = `${userId}:${publicKey}`;
 
   return (
     <div className="text-center">
