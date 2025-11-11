@@ -248,9 +248,9 @@ export default function ChatRoomPage() {
 
   return (
     <PanicWrapper>
-      <div className="min-h-screen bg-gray-100 flex flex-col">
-        {/* Header */}
-        <div className="bg-green-500 text-white p-4 flex items-center justify-between">
+      <div className="min-h-screen bg-gray-200 flex flex-col">
+        {/* Header - Style WhatsApp */}
+        <div className="bg-teal-600 text-white p-3 flex items-center justify-between shadow-md">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push('/chat')}
@@ -266,7 +266,7 @@ export default function ChatRoomPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setShowCodeModal(true)}
-              className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm"
+              className="px-3 py-1 bg-teal-700 hover:bg-teal-800 text-white rounded text-sm"
             >
               Partager
             </button>
@@ -279,12 +279,19 @@ export default function ChatRoomPage() {
           </div>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {/* Messages - Style WhatsApp */}
+        <div
+          className="flex-1 overflow-y-auto p-4 space-y-2"
+          style={{
+            backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h100v100H0z\' fill=\'%23efeae2\'/%3E%3Cpath d=\'M20 10l5 5-5 5m15-10l5 5-5 5\' stroke=\'%23d4cfc5\' stroke-width=\'0.3\' fill=\'none\'/%3E%3C/svg%3E")',
+            backgroundColor: '#efeae2'
+          }}
+        >
           {messages.length === 0 ? (
-            <div className="text-center text-gray-500 mt-8">
-              <p>Aucun message</p>
-              <p className="text-sm mt-2">Partagez le code <strong>{roomId}</strong> pour commencer à chatter</p>
+            <div className="text-center text-gray-600 mt-8 bg-yellow-100 border border-yellow-300 rounded-lg p-4 mx-auto max-w-sm">
+              <p className="text-sm">🔒 Messages chiffrés de bout en bout</p>
+              <p className="text-xs mt-2">Code: <strong>{roomId}</strong></p>
+              <p className="text-xs mt-1 text-gray-500">Partagez ce code pour commencer</p>
             </div>
           ) : (
             messages.map(message => (
@@ -293,19 +300,27 @@ export default function ChatRoomPage() {
                 className={`flex ${message.isSent ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-xs md:max-w-md px-4 py-2 rounded-lg ${
+                  className={`max-w-xs md:max-w-md px-3 py-2 shadow-sm ${
                     message.isSent
-                      ? 'bg-green-500 text-white'
-                      : 'bg-white text-gray-800'
+                      ? 'bg-dcf8c6 rounded-tl-lg rounded-tr-lg rounded-bl-lg'
+                      : 'bg-white rounded-tl-lg rounded-tr-lg rounded-br-lg'
                   }`}
+                  style={{
+                    backgroundColor: message.isSent ? '#dcf8c6' : '#ffffff'
+                  }}
                 >
-                  <p className="break-words">{message.content}</p>
-                  <p className={`text-xs mt-1 ${message.isSent ? 'text-green-100' : 'text-gray-500'}`}>
-                    {new Date(message.timestamp).toLocaleTimeString('fr-FR', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
+                  <p className="text-sm text-gray-800 break-words">{message.content}</p>
+                  <div className={`flex items-center justify-end gap-1 mt-1`}>
+                    <span className="text-xs text-gray-500">
+                      {new Date(message.timestamp).toLocaleTimeString('fr-FR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                    {message.isSent && (
+                      <span className="text-xs text-gray-500">✓✓</span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))
@@ -313,22 +328,30 @@ export default function ChatRoomPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        <div className="bg-white p-4 border-t border-gray-200">
+        {/* Input - Style WhatsApp */}
+        <div className="bg-gray-100 p-3 border-t border-gray-300">
           <div className="flex items-center gap-2 max-w-4xl mx-auto">
             <input
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-              placeholder="Tapez un message..."
-              className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="Message"
+              className="flex-1 px-4 py-3 bg-white border-none rounded-full focus:outline-none text-sm"
             />
             <button
               onClick={sendMessage}
-              className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium"
+              className="w-12 h-12 bg-teal-600 hover:bg-teal-700 text-white rounded-full flex items-center justify-center shadow-lg transition-all"
+              disabled={!newMessage.trim()}
             >
-              Envoyer
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="w-5 h-5"
+              >
+                <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+              </svg>
             </button>
           </div>
         </div>

@@ -170,35 +170,35 @@ export default function ChatListPage() {
   return (
     <PanicWrapper>
       <div className="min-h-screen bg-gray-100">
-        {/* Header */}
-        <div className="bg-green-500 text-white p-4 flex items-center justify-between">
+        {/* Header - Style WhatsApp */}
+        <div className="bg-teal-600 text-white p-4 flex items-center justify-between shadow-md">
           <div>
             <h1 className="text-xl font-bold">SecureChat</h1>
-            <p className="text-sm opacity-75">Conversations privées</p>
+            <p className="text-xs opacity-90">Conversations chiffrées</p>
           </div>
           <button
             onClick={() => setShowSettingsModal(true)}
-            className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm"
+            className="px-3 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded text-sm"
           >
-            Paramètres
+            ⚙️ Paramètres
           </button>
         </div>
 
         {/* Content */}
         <div className="max-w-2xl mx-auto p-4">
-          {/* Buttons */}
+          {/* Buttons - Style WhatsApp */}
           <div className="flex gap-3 mb-6">
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex-1 px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium"
+              className="flex-1 px-4 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium shadow-md"
             >
-              + Nouvelle conversation
+              ✚ Nouvelle conversation
             </button>
             <button
               onClick={() => setShowJoinModal(true)}
-              className="flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium"
+              className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-md"
             >
-              Rejoindre avec code
+              🔑 Rejoindre
             </button>
           </div>
 
@@ -209,31 +209,41 @@ export default function ChatListPage() {
               <p className="text-sm">Créez-en une ou rejoignez avec un code</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-1 bg-white rounded-lg shadow-md overflow-hidden">
               {conversations.map(conv => (
                 <div
                   key={conv.id}
-                  className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+                  className="border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
                   onClick={() => router.push(`/chat/${conv.id}`)}
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{conv.name}</h3>
-                      <p className="text-sm text-gray-600">Code: {conv.id}</p>
+                  <div className="p-4 flex items-center gap-3">
+                    {/* Avatar */}
+                    <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                      {conv.name.charAt(0).toUpperCase()}
                     </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-baseline mb-1">
+                        <h3 className="font-semibold text-gray-900 truncate">{conv.name}</h3>
+                        <span className="text-xs text-gray-500 ml-2">Code: {conv.id}</span>
+                      </div>
+                      {conv.lastMessage && (
+                        <p className="text-sm text-gray-600 truncate">{conv.lastMessage}</p>
+                      )}
+                    </div>
+
+                    {/* Delete button */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteConversation(conv.id);
                       }}
-                      className="text-red-500 hover:text-red-700 text-sm px-2"
+                      className="text-red-500 hover:text-red-700 text-sm px-2 flex-shrink-0"
                     >
-                      Supprimer
+                      🗑️
                     </button>
                   </div>
-                  {conv.lastMessage && (
-                    <p className="text-sm text-gray-500 truncate">{conv.lastMessage}</p>
-                  )}
                 </div>
               ))}
             </div>
@@ -263,7 +273,7 @@ export default function ChatListPage() {
                 </button>
                 <button
                   onClick={createConversation}
-                  className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                  className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
                 >
                   Créer
                 </button>
@@ -321,7 +331,7 @@ export default function ChatListPage() {
                   <button
                     onClick={toggleEphemeralMode}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      ephemeralMode ? 'bg-green-500' : 'bg-gray-300'
+                      ephemeralMode ? 'bg-teal-600' : 'bg-gray-300'
                     }`}
                   >
                     <span
