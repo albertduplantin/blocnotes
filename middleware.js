@@ -5,7 +5,7 @@ export default authMiddleware({
   publicRoutes: [
     '/',
     '/notes',
-    '/chat',
+    '/chat(.*)', // Permet /chat et toutes les sous-routes
     '/manifest.json',
     '/favicon.svg',
     '/icon-192x192.svg',

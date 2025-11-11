@@ -1,139 +1,107 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { QRPairing } from '../../components/QRPairing';
-import { MessageBubble } from '../../components/MessageBubble';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { PanicWrapper } from '../../components/PanicWrapper';
-import { encryptMessage, decryptMessage, deriveSharedSecret } from '../../utils/crypto';
 
-export default function ChatPage() {
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [isPaired, setIsPaired] = useState(false);
-  const [sharedSecret, setSharedSecret] = useState(null);
-  const [contactPublicKey, setContactPublicKey] = useState(null);
-  const messagesEndRef = useRef(null);
+export default function ChatListPage() {
+  const router = useRouter();
+  const [conversations, setConversations] = useState([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [newConversationName, setNewConversationName] = useState('');
+  const [joinCode, setJoinCode] = useState('');
 
-  // Charger les messages depuis IndexedDB
   useEffect(() => {
-    loadMessages();
-    checkPairingStatus();
+    loadConversations();
   }, []);
 
-  // Faire défiler vers le bas lors de nouveaux messages
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const loadMessages = async () => {
-    try {
-      const db = await openDB('chat', 1);
-      const transaction = db.transaction(['messages'], 'readonly');
-      const store = transaction.objectStore('messages');
-      const request = store.getAll();
-
-      request.onsuccess = () => {
-        setMessages(request.result.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)));
-      };
-    } catch (error) {
-      console.error('Erreur lors du chargement des messages:', error);
+  const loadConversations = () => {
+    const savedConversations = localStorage.getItem('conversations');
+    if (savedConversations) {
+      setConversations(JSON.parse(savedConversations));
     }
   };
 
-  const checkPairingStatus = async () => {
-    try {
-      const db = await openDB('chat', 1);
-      const transaction = db.transaction(['keys'], 'readonly');
-      const store = transaction.objectStore('keys');
-      const request = store.get('sharedSecret');
-
-      request.onsuccess = () => {
-        if (request.result) {
-          setSharedSecret(request.result.value);
-          setIsPaired(true);
-        }
-      };
-    } catch (error) {
-      console.error('Erreur lors de la vérification du pairing:', error);
+  const generateCode = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sans O, 0, I, 1 pour éviter confusion
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
+    return code;
   };
 
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !sharedSecret) return;
+  const createConversation = () => {
+    if (!newConversationName.trim()) return;
 
-    try {
-      const encrypted = await encryptMessage(newMessage, sharedSecret);
-      const message = {
-        id: Date.now(),
-        content: encrypted.content,
-        iv: encrypted.iv,
-        timestamp: new Date().toISOString(),
-        isSent: true,
-      };
+    const code = generateCode();
+    const conversation = {
+      id: code,
+      name: newConversationName,
+      createdAt: new Date().toISOString(),
+      lastMessage: null,
+    };
 
-      // Sauvegarder dans IndexedDB
-      const db = await openDB('chat', 1);
+    const updatedConversations = [...conversations, conversation];
+    setConversations(updatedConversations);
+    localStorage.setItem('conversations', JSON.stringify(updatedConversations));
+
+    setShowCreateModal(false);
+    setNewConversationName('');
+    router.push(`/chat/${code}`);
+  };
+
+  const joinConversation = () => {
+    const code = joinCode.trim().toUpperCase();
+    if (!code) return;
+
+    // Vérifier si la conversation existe déjà
+    const existing = conversations.find(c => c.id === code);
+    if (existing) {
+      router.push(`/chat/${code}`);
+      return;
+    }
+
+    // Créer une nouvelle entrée pour cette conversation
+    const conversation = {
+      id: code,
+      name: `Conversation ${code}`,
+      createdAt: new Date().toISOString(),
+      lastMessage: null,
+    };
+
+    const updatedConversations = [...conversations, conversation];
+    setConversations(updatedConversations);
+    localStorage.setItem('conversations', JSON.stringify(updatedConversations));
+
+    setShowJoinModal(false);
+    setJoinCode('');
+    router.push(`/chat/${code}`);
+  };
+
+  const deleteConversation = (id) => {
+    if (!confirm('Supprimer cette conversation ?')) return;
+
+    const updatedConversations = conversations.filter(c => c.id !== id);
+    setConversations(updatedConversations);
+    localStorage.setItem('conversations', JSON.stringify(updatedConversations));
+
+    // Supprimer aussi les messages de IndexedDB
+    openDB('chat', 1).then(db => {
       const transaction = db.transaction(['messages'], 'readwrite');
       const store = transaction.objectStore('messages');
-      store.add(message);
+      const index = store.index('roomId');
+      const request = index.openCursor(IDBKeyRange.only(id));
 
-      setMessages([...messages, message]);
-      setNewMessage('');
-
-      // Envoyer au serveur (simulé)
-      await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          encryptedContent: encrypted.content,
-          iv: encrypted.iv,
-          receiverId: 'contact-id', // À remplacer par l'ID réel
-        }),
-      });
-    } catch (error) {
-      console.error('Erreur lors de l\'envoi du message:', error);
-    }
-  };
-
-  const handlePairing = async (contactKey) => {
-    try {
-      // Générer la clé partagée
-      const privateKey = await loadPrivateKey();
-      const secret = await deriveSharedSecret(privateKey, contactKey);
-
-      // Sauvegarder la clé partagée
-      const db = await openDB('chat', 1);
-      const transaction = db.transaction(['keys'], 'readwrite');
-      const store = transaction.objectStore('keys');
-      store.put({ id: 'sharedSecret', value: secret });
-
-      setSharedSecret(secret);
-      setContactPublicKey(contactKey);
-      setIsPaired(true);
-    } catch (error) {
-      console.error('Erreur lors du pairing:', error);
-    }
-  };
-
-  const loadPrivateKey = async () => {
-    try {
-      const db = await openDB('chat', 1);
-      const transaction = db.transaction(['keys'], 'readonly');
-      const store = transaction.objectStore('keys');
-      const request = store.get('privateKey');
-
-      return new Promise((resolve, reject) => {
-        request.onsuccess = () => resolve(request.result?.value || null);
-        request.onerror = () => reject(request.error);
-      });
-    } catch (error) {
-      console.error('Erreur lors du chargement de la clé privée:', error);
-      return null;
-    }
-  };
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          cursor.delete();
+          cursor.continue();
+        }
+      };
+    });
   };
 
   const openDB = (name, version) => {
@@ -143,84 +111,144 @@ export default function ChatPage() {
       request.onsuccess = () => resolve(request.result);
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
-        // Create object stores if they don't exist
         if (!db.objectStoreNames.contains('messages')) {
           const messagesStore = db.createObjectStore('messages', { keyPath: 'id' });
           messagesStore.createIndex('timestamp', 'timestamp', { unique: false });
-        }
-        if (!db.objectStoreNames.contains('keys')) {
-          db.createObjectStore('keys', { keyPath: 'id' });
+          messagesStore.createIndex('roomId', 'roomId', { unique: false });
         }
       };
     });
   };
 
-  if (!isPaired) {
-    return (
-      <PanicWrapper>
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-          <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
-            <h1 className="text-2xl font-bold mb-4 text-center">SecureNotes</h1>
-            <p className="text-center mb-6">Scannez le QR code pour vous connecter</p>
-            <QRPairing onPair={handlePairing} />
-          </div>
-        </div>
-      </PanicWrapper>
-    );
-  }
-
   return (
     <PanicWrapper>
-      <div className="min-h-screen bg-gray-100 flex flex-col">
+      <div className="min-h-screen bg-gray-100">
         {/* Header */}
-        <div className="bg-green-500 text-white p-4 flex items-center">
-          <div className="flex-1">
-            <h1 className="text-lg font-semibold">Contact</h1>
-            <p className="text-sm opacity-75">En ligne</p>
+        <div className="bg-green-500 text-white p-4">
+          <h1 className="text-xl font-bold">SecureChat</h1>
+          <p className="text-sm opacity-75">Conversations privées</p>
+        </div>
+
+        {/* Content */}
+        <div className="max-w-2xl mx-auto p-4">
+          {/* Buttons */}
+          <div className="flex gap-3 mb-6">
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex-1 px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium"
+            >
+              + Nouvelle conversation
+            </button>
+            <button
+              onClick={() => setShowJoinModal(true)}
+              className="flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium"
+            >
+              Rejoindre avec code
+            </button>
           </div>
-          <button
-            onClick={() => {
-              // Mode panique
-              localStorage.clear();
-              indexedDB.deleteDatabase('chat');
-              window.location.href = '/notes';
-            }}
-            className="px-3 py-1 bg-red-600 text-white rounded text-sm"
-          >
-            Déconnexion
-          </button>
+
+          {/* Conversations List */}
+          {conversations.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <p className="mb-2">Aucune conversation</p>
+              <p className="text-sm">Créez-en une ou rejoignez avec un code</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {conversations.map(conv => (
+                <div
+                  key={conv.id}
+                  className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+                  onClick={() => router.push(`/chat/${conv.id}`)}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg">{conv.name}</h3>
+                      <p className="text-sm text-gray-600">Code: {conv.id}</p>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteConversation(conv.id);
+                      }}
+                      className="text-red-500 hover:text-red-700 text-sm px-2"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                  {conv.lastMessage && (
+                    <p className="text-sm text-gray-500 truncate">{conv.lastMessage}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {messages.map(message => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              isSent={message.isSent}
-              sharedSecret={sharedSecret}
-            />
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
+        {/* Create Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full">
+              <h2 className="text-xl font-bold mb-4">Nouvelle conversation</h2>
+              <input
+                type="text"
+                value={newConversationName}
+                onChange={(e) => setNewConversationName(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && createConversation()}
+                placeholder="Nom du contact"
+                className="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-green-500"
+                autoFocus
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={createConversation}
+                  className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                >
+                  Créer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
-        {/* Input */}
-        <div className="bg-white p-4 flex items-center">
-          <input
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-            placeholder="Tapez un message..."
-            className="flex-1 p-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-          />
-          <button
-            onClick={sendMessage}
-            className="px-4 py-2 bg-green-500 text-white rounded-r-lg hover:bg-green-600"
-          >
-            Envoyer
-          </button>
-        </div>
+        {/* Join Modal */}
+        {showJoinModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full">
+              <h2 className="text-xl font-bold mb-4">Rejoindre une conversation</h2>
+              <input
+                type="text"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                onKeyPress={(e) => e.key === 'Enter' && joinConversation()}
+                placeholder="Code (ex: ABC123)"
+                className="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+                maxLength={6}
+                autoFocus
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowJoinModal(false)}
+                  className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={joinConversation}
+                  className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                >
+                  Rejoindre
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </PanicWrapper>
   );
