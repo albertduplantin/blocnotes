@@ -1,16 +1,9 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { authMiddleware } from '@clerk/nextjs/server';
 
-// Définir les routes qui nécessitent une authentification
-const isProtectedRoute = createRouteMatcher([
-  '/chat(.*)',
-  '/api/(.*)',
-]);
-
-export default clerkMiddleware((auth, req) => {
-  // Protéger les routes définies
-  if (isProtectedRoute(req)) {
-    auth().protect();
-  }
+export default authMiddleware({
+  // Routes qui nécessitent une authentification
+  publicRoutes: ['/', '/notes'],
+  ignoredRoutes: ['/api/cleanup'], // Route publique pour le cron
 });
 
 export const config = {

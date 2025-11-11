@@ -6,8 +6,11 @@ export const metadata = {
   description: 'Application de bloc-notes sécurisée et privée',
   manifest: '/manifest.json',
   icons: {
-    icon: '/icon-192x192.png', // Icône à créer
+    icon: '/favicon.svg',
   },
+};
+
+export const viewport = {
   themeColor: '#ffffff',
 };
 
