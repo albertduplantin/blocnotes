@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getAllPasswords } from '../../../../lib/stores';
+import { getAllPasswords, initDatabase } from '../../../../lib/db';
 
 export async function GET() {
   try {
-    // Retourner tous les mots de passe depuis le store unifié
-    const passwords = getAllPasswords();
+    // Initialiser la base de données si nécessaire
+    await initDatabase();
+
+    // Retourner tous les mots de passe depuis PostgreSQL
+    const passwords = await getAllPasswords();
 
     return NextResponse.json({ passwords });
   } catch (error) {

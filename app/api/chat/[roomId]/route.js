@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getMessages, setMessages, getPassword, setPassword } from '../../../../lib/stores';
+import { getPassword, setPassword, initDatabase } from '../../../../lib/db';
 
 // Stockage en mémoire des messages (pour le dev - en prod utiliser une vraie DB)
 const messagesStore = new Map();
@@ -50,7 +50,7 @@ export async function GET(request, { params }) {
 
     // Ajouter le mot de passe si demandé
     if (includePassword === 'true') {
-      response.accessPassword = getPassword(roomId);
+      response.accessPassword = await getPassword(roomId);
     }
 
     return NextResponse.json(response);
@@ -128,14 +128,17 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Room ID manquant' }, { status: 400 });
     }
 
-    // Sauvegarder le mot de passe dans le store unifié
-    if (accessPassword && accessPassword.trim()) {
-      setPassword(roomId, accessPassword.trim());
-    } else {
-      setPassword(roomId, '');
-    }
+    // Initialiser la base de données si nécessaire
+    await initDatabase();
 
-    return NextResponse.json({ success: true });
+    // Sauvegarder le mot de passe dans PostgreSQL
+    const success = await setPassword(roomId, accessPassword?.trim() || '');
+
+    if (success) {
+      return NextResponse.json({ success: true });
+    } else {
+      return NextResponse.json({ error: 'Erreur lors de la sauvegarde' }, { status: 500 });
+    }
   } catch (error) {
     console.error('Erreur lors de la sauvegarde du mot de passe:', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
