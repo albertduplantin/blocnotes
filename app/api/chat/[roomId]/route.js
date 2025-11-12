@@ -54,7 +54,7 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   try {
     const roomId = params.roomId;
-    const { id, content, timestamp, isSent } = await request.json();
+    const { id, content, timestamp, sentByAdmin } = await request.json();
 
     if (!roomId || !content) {
       return NextResponse.json({ error: 'Données manquantes' }, { status: 400 });
@@ -69,7 +69,7 @@ export async function POST(request, { params }) {
       roomId,
       content,
       timestamp: messageTimestamp,
-      isSent: isSent || false,
+      sentByAdmin: sentByAdmin || false,
     };
 
     // Récupérer les messages existants pour cette room

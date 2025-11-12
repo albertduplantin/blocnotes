@@ -86,7 +86,7 @@ export default function ChatRoomPage() {
         roomId: roomId,
         content: messageContent,
         timestamp: new Date().toISOString(),
-        isSent: true,
+        sentByAdmin: isAdmin, // Identifier qui envoie le message
       };
 
       // Afficher immédiatement le message localement
@@ -109,7 +109,7 @@ export default function ChatRoomPage() {
           id: message.id, // Envoyer l'ID créé par le client
           content: messageContent,
           timestamp: message.timestamp,
-          isSent: true
+          sentByAdmin: isAdmin // Envoyer qui a envoyé le message
         }),
       });
 
@@ -177,7 +177,7 @@ export default function ChatRoomPage() {
         });
 
         if (!existingMessage) {
-          store.add({ ...message, isSent: false }); // Messages reçus
+          store.add(message); // Conserver sentByAdmin original
         }
       }
     } catch (error) {
@@ -322,36 +322,43 @@ export default function ChatRoomPage() {
               <p className="text-xs mt-1 text-gray-500">Partagez ce code pour commencer</p>
             </div>
           ) : (
-            messages.map(message => (
-              <div
-                key={message.id}
-                className={`flex ${message.isSent ? 'justify-end' : 'justify-start'}`}
-              >
+            messages.map(message => {
+              // Déterminer si c'est MON message ou celui de l'autre
+              // Si je suis admin et message envoyé par admin → mon message
+              // Si je suis utilisateur et message envoyé par utilisateur → mon message
+              const isMyMessage = (isAdmin && message.sentByAdmin) || (!isAdmin && !message.sentByAdmin);
+
+              return (
                 <div
-                  className={`max-w-xs md:max-w-md px-3 py-2 shadow-sm ${
-                    message.isSent
-                      ? 'bg-dcf8c6 rounded-tl-lg rounded-tr-lg rounded-bl-lg'
-                      : 'bg-white rounded-tl-lg rounded-tr-lg rounded-br-lg'
-                  }`}
-                  style={{
-                    backgroundColor: message.isSent ? '#dcf8c6' : '#ffffff'
-                  }}
+                  key={message.id}
+                  className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
                 >
-                  <p className="text-sm text-gray-800 break-words">{message.content}</p>
-                  <div className={`flex items-center justify-end gap-1 mt-1`}>
-                    <span className="text-xs text-gray-500">
-                      {new Date(message.timestamp).toLocaleTimeString('fr-FR', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                    {message.isSent && (
-                      <span className="text-xs text-gray-500">✓✓</span>
-                    )}
+                  <div
+                    className={`max-w-xs md:max-w-md px-3 py-2 shadow-sm ${
+                      isMyMessage
+                        ? 'bg-dcf8c6 rounded-tl-lg rounded-tr-lg rounded-bl-lg'
+                        : 'bg-white rounded-tl-lg rounded-tr-lg rounded-br-lg'
+                    }`}
+                    style={{
+                      backgroundColor: isMyMessage ? '#dcf8c6' : '#ffffff'
+                    }}
+                  >
+                    <p className="text-sm text-gray-800 break-words">{message.content}</p>
+                    <div className={`flex items-center justify-end gap-1 mt-1`}>
+                      <span className="text-xs text-gray-500">
+                        {new Date(message.timestamp).toLocaleTimeString('fr-FR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                      {isMyMessage && (
+                        <span className="text-xs text-gray-500">✓✓</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
           <div ref={messagesEndRef} />
         </div>
