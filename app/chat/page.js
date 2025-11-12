@@ -341,59 +341,6 @@ export default function ChatListPage() {
             </div>
           </div>
         )}
-
-        {/* Settings Modal */}
-        {showSettingsModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white p-6 rounded-lg max-w-md w-full">
-              <h2 className="text-xl font-bold mb-4">Paramètres</h2>
-
-              <div className="space-y-4">
-                {/* Mode éphémère */}
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <h3 className="font-medium">Mode éphémère</h3>
-                    <p className="text-sm text-gray-600">Efface tout en quittant le chat</p>
-                  </div>
-                  <button
-                    onClick={toggleEphemeralMode}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      ephemeralMode ? 'bg-teal-600' : 'bg-gray-300'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        ephemeralMode ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* Bouton effacer tout */}
-                <button
-                  onClick={() => {
-                    if (confirm('Effacer toutes les conversations et tous les messages ? Cette action est irréversible.')) {
-                      clearAllData();
-                      setShowSettingsModal(false);
-                    }
-                  }}
-                  className="w-full px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium"
-                >
-                  Effacer toutes les données
-                </button>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => setShowSettingsModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
-                >
-                  Fermer
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </PanicWrapper>
   );
