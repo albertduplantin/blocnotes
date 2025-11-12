@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
+import { passwordsStore } from '../../../../lib/stores';
 
 // Stockage en mémoire des messages (pour le dev - en prod utiliser une vraie DB)
 const messagesStore = new Map();
-
-// Stockage en mémoire des mots de passe d'accès par conversation (global pour partage)
-const passwordsStore = global.chatPasswordsStore || (global.chatPasswordsStore = new Map());
 
 // Nettoyer les vieux messages (plus de 24h)
 function cleanOldMessages() {

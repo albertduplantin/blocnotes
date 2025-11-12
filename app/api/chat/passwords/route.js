@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-
-// Importer le store de mots de passe depuis le module parent
-// Note: En production, utiliser une vraie base de données
-const passwordsStore = global.chatPasswordsStore || (global.chatPasswordsStore = new Map());
+import { passwordsStore } from '../../../../lib/stores';
 
 export async function GET() {
   try {
