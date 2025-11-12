@@ -64,21 +64,25 @@ export default function NotesPage() {
         const response = await fetch('/api/chat/passwords');
         if (response.ok) {
           const data = await response.json();
-          const passwords = data.passwords;
 
-          // Texte combiné du titre et contenu en minuscules pour comparaison insensible à la casse
-          const combinedText = `${newNote.title} ${newNote.content}`.toLowerCase();
+          // Vérifications de sécurité
+          if (data && data.passwords && typeof data.passwords === 'object') {
+            const passwords = data.passwords;
 
-          // Vérifier chaque mot de passe
-          for (const [roomId, password] of Object.entries(passwords)) {
-            if (password && password.trim()) {
-              const passwordLower = password.toLowerCase();
-              if (combinedText.includes(passwordLower)) {
-                // Mot de passe trouvé ! Rediriger vers le chat sans sauvegarder la note
-                localStorage.setItem('isAdmin', 'false');
-                setNewNote({ title: '', content: '', color: '#ffffff' });
-                router.push(`/chat/${roomId}`);
-                return;
+            // Texte combiné du titre et contenu en minuscules pour comparaison insensible à la casse
+            const combinedText = `${newNote.title} ${newNote.content}`.toLowerCase();
+
+            // Vérifier chaque mot de passe
+            for (const [roomId, password] of Object.entries(passwords)) {
+              if (password && typeof password === 'string' && password.trim()) {
+                const passwordLower = password.toLowerCase();
+                if (combinedText.includes(passwordLower)) {
+                  // Mot de passe trouvé ! Rediriger vers le chat sans sauvegarder la note
+                  localStorage.setItem('isAdmin', 'false');
+                  setNewNote({ title: '', content: '', color: '#ffffff' });
+                  router.push(`/chat/${roomId}`);
+                  return;
+                }
               }
             }
           }
