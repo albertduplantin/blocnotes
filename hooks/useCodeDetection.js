@@ -8,12 +8,6 @@ export function useCodeDetection() {
 
   useEffect(() => {
     const handleKeyPress = (event) => {
-      // Ignorer si l'utilisateur tape dans un textarea ou input
-      const target = event.target;
-      if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
-        return;
-      }
-
       // Ajouter le caractère au buffer (seulement lettres et chiffres)
       if (event.key.length === 1 && /[a-zA-Z0-9]/.test(event.key)) {
         bufferRef.current += event.key.toUpperCase();

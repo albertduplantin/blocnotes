@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCodeDetection } from '../../hooks/useCodeDetection';
 import { PanicWrapper } from '../../components/PanicWrapper';
+import { MobileMenu } from '../../components/MobileMenu';
 
 const colors = ['#ffffff', '#f28b82', '#fbbc04', '#fff475', '#ccff90', '#a7ffeb', '#cbf0f8', '#aecbfa', '#d7aefb', '#fdcfe8'];
 
@@ -75,14 +76,37 @@ export default function NotesPage() {
     setNotes(notes.filter(note => note.id !== id));
   };
 
+  const handleLogout = () => {
+    if (confirm('Se déconnecter ?')) {
+      // Clear notes data
+      localStorage.removeItem('notesSync');
+      localStorage.removeItem('userName');
+      // Redirect to home
+      router.push('/');
+    }
+  };
+
   return (
     <PanicWrapper>
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <div className="bg-blue-600 text-white p-4 shadow-md">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="text-2xl font-bold">📝 Mes Notes</h1>
-            <p className="text-xs opacity-90">Connecté en tant que {userName}</p>
+        <div className="bg-blue-600 text-white p-4 shadow-md relative">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold">📝 Mes Notes</h1>
+              <p className="text-xs opacity-90">Connecté en tant que {userName}</p>
+            </div>
+
+            {/* Desktop logout button */}
+            <button
+              onClick={handleLogout}
+              className="hidden md:block px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-semibold transition-colors"
+            >
+              🚪 Déconnexion
+            </button>
+
+            {/* Mobile menu */}
+            <MobileMenu userName={userName} onLogout={handleLogout} />
           </div>
         </div>
 
