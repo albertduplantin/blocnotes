@@ -101,12 +101,14 @@ export default function ChatRoomPage() {
       // Mettre à jour le dernier message dans la liste des conversations
       updateLastMessage(messageContent);
 
-      // Envoyer au serveur pour synchronisation
+      // Envoyer au serveur pour synchronisation (avec l'ID du message)
       await fetch(`/api/chat/${roomId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          id: message.id, // Envoyer l'ID créé par le client
           content: messageContent,
+          timestamp: message.timestamp,
           isSent: true
         }),
       });

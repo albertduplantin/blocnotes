@@ -54,24 +54,33 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   try {
     const roomId = params.roomId;
-    const { content, isSent } = await request.json();
+    const { id, content, timestamp, isSent } = await request.json();
 
     if (!roomId || !content) {
       return NextResponse.json({ error: 'Données manquantes' }, { status: 400 });
     }
 
+    // Utiliser l'ID fourni par le client, ou en créer un si absent
+    const messageId = id || `${roomId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const messageTimestamp = timestamp || new Date().toISOString();
+
     const message = {
-      id: `${roomId}_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+      id: messageId,
       roomId,
       content,
-      timestamp: new Date().toISOString(),
+      timestamp: messageTimestamp,
       isSent: isSent || false,
     };
 
     // Récupérer les messages existants pour cette room
     const roomMessages = messagesStore.get(roomId) || [];
-    roomMessages.push(message);
-    messagesStore.set(roomId, roomMessages);
+
+    // Vérifier si le message existe déjà (éviter les doublons)
+    const exists = roomMessages.some(msg => msg.id === messageId);
+    if (!exists) {
+      roomMessages.push(message);
+      messagesStore.set(roomId, roomMessages);
+    }
 
     return NextResponse.json({
       success: true,
