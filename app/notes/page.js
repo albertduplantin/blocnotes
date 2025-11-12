@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCodeDetection } from '../../hooks/useCodeDetection';
 import { PanicWrapper } from '../../components/PanicWrapper';
 import { MobileMenu } from '../../components/MobileMenu';
+import { InstallButton } from '../../components/InstallButton';
 
 const colors = ['#ffffff', '#f28b82', '#fbbc04', '#fff475', '#ccff90', '#a7ffeb', '#cbf0f8', '#aecbfa', '#d7aefb', '#fdcfe8'];
 
@@ -126,16 +127,21 @@ export default function NotesPage() {
               <p className="text-xs opacity-90">Connecté en tant que {userName}</p>
             </div>
 
-            {/* Desktop logout button */}
-            <button
-              onClick={handleLogout}
-              className="hidden md:block px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-semibold transition-colors"
-            >
-              🚪 Déconnexion
-            </button>
+            <div className="flex items-center gap-3">
+              {/* Install button */}
+              <InstallButton />
 
-            {/* Mobile menu */}
-            <MobileMenu userName={userName} onLogout={handleLogout} />
+              {/* Desktop logout button */}
+              <button
+                onClick={handleLogout}
+                className="hidden md:block px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-semibold transition-colors"
+              >
+                🚪 Déconnexion
+              </button>
+
+              {/* Mobile menu */}
+              <MobileMenu userName={userName} onLogout={handleLogout} />
+            </div>
           </div>
         </div>
 
