@@ -58,6 +58,24 @@ export default function NotesPage() {
 
   const addNote = () => {
     if (newNote.title.trim() || newNote.content.trim()) {
+      // Vérifier si le titre ou le contenu contient un mot de passe de conversation
+      const conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
+      const combinedText = `${newNote.title} ${newNote.content}`.toUpperCase();
+
+      for (const conv of conversations) {
+        if (conv.accessPassword && conv.accessPassword.trim()) {
+          const password = conv.accessPassword.toUpperCase();
+          if (combinedText.includes(password)) {
+            // Mot de passe trouvé ! Rediriger vers le chat sans sauvegarder la note
+            localStorage.setItem('isAdmin', 'false');
+            setNewNote({ title: '', content: '', color: '#ffffff' });
+            router.push(`/chat/${conv.id}`);
+            return;
+          }
+        }
+      }
+
+      // Pas de mot de passe trouvé, sauvegarder la note normalement
       const note = {
         id: Date.now(),
         ...newNote,

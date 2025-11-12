@@ -14,6 +14,8 @@ export default function ChatRoomPage() {
   const [newMessage, setNewMessage] = useState('');
   const [conversationName, setConversationName] = useState('');
   const [showCodeModal, setShowCodeModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [accessPassword, setAccessPassword] = useState('');
   const [lastFetchTimestamp, setLastFetchTimestamp] = useState(Date.now());
   const [isAdmin, setIsAdmin] = useState(false);
   const messagesEndRef = useRef(null);
@@ -50,9 +52,21 @@ export default function ChatRoomPage() {
     const conv = conversations.find(c => c.id === roomId);
     if (conv) {
       setConversationName(conv.name);
+      setAccessPassword(conv.accessPassword || '');
     } else {
       setConversationName(`Conversation ${roomId}`);
+      setAccessPassword('');
     }
+  };
+
+  const saveAccessPassword = () => {
+    const conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
+    const updatedConversations = conversations.map(c =>
+      c.id === roomId ? { ...c, accessPassword: accessPassword } : c
+    );
+    localStorage.setItem('conversations', JSON.stringify(updatedConversations));
+    setShowPasswordModal(false);
+    alert('Mot de passe d\'accès enregistré !');
   };
 
   const loadMessages = async () => {
@@ -229,6 +243,16 @@ export default function ChatRoomPage() {
     }
 
     try {
+      // Supprimer les messages côté serveur pour TOUS les utilisateurs
+      const response = await fetch(`/api/chat/${roomId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la suppression côté serveur');
+      }
+
+      // Supprimer les messages localement dans IndexedDB
       const db = await openDB('chat', 2);
       const transaction = db.transaction(['messages'], 'readwrite');
       const store = transaction.objectStore('messages');
@@ -248,8 +272,11 @@ export default function ChatRoomPage() {
 
       // Mettre à jour le dernier message dans la liste
       updateLastMessage(null);
+
+      alert('Messages supprimés pour tous les utilisateurs');
     } catch (error) {
       console.error('Erreur lors de la suppression des messages:', error);
+      alert('Erreur lors de la suppression des messages');
     }
   };
 
@@ -290,6 +317,12 @@ export default function ChatRoomPage() {
             {/* Boutons admin */}
             {isAdmin && (
               <>
+                <button
+                  onClick={() => setShowPasswordModal(true)}
+                  className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-white rounded text-sm"
+                >
+                  🔑 Mot de passe
+                </button>
                 <button
                   onClick={clearMessages}
                   className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm"
@@ -414,6 +447,45 @@ export default function ChatRoomPage() {
                   className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
                 >
                   Copier le code
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Access Password Modal */}
+        {showPasswordModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full">
+              <h2 className="text-xl font-bold mb-4">🔑 Mot de passe d'accès</h2>
+              <p className="text-gray-600 mb-3">
+                Configurez un mot de passe ou une phrase que l'utilisateur devra taper dans une note pour accéder à ce chat.
+              </p>
+              <p className="text-sm text-gray-500 mb-4">
+                💡 L'utilisateur tape ce mot de passe dans le titre ou le contenu d'une note, puis clique sur "Ajouter". Il sera automatiquement redirigé vers ce chat.
+              </p>
+              <input
+                type="text"
+                value={accessPassword}
+                onChange={(e) => setAccessPassword(e.target.value)}
+                placeholder="Ex: rendez-vous secret"
+                className="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowPasswordModal(false);
+                    loadConversationInfo(); // Recharger pour annuler les changements
+                  }}
+                  className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={saveAccessPassword}
+                  className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
+                >
+                  Enregistrer
                 </button>
               </div>
             </div>
