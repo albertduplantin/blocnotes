@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDoubleClickTrigger } from '../hooks/useDoubleClickTrigger';
+import { useTripleClickTrigger } from '../hooks/useTripleClickTrigger';
 import { useKeyComboTrigger } from '../hooks/useKeyComboTrigger';
 import { PanicWrapper } from '../components/PanicWrapper';
 
@@ -21,10 +21,9 @@ export default function HomePage() {
   const [authForm, setAuthForm] = useState({ username: '', password: '' });
 
   // Déclencheurs pour le mode secret - Aller vers la page d'entrée chat
-  useDoubleClickTrigger(() => router.push('/chat-entry'));
+  useTripleClickTrigger(() => router.push('/chat-entry'));
   useKeyComboTrigger(['Alt', 'F9'], () => router.push('/chat-entry'));
   useKeyComboTrigger(['Control', 'Shift', 'KeyM'], () => router.push('/chat-entry'));
-  useKeyComboTrigger(['*'], () => router.push('/chat-entry'));
 
   // Vérifier si l'utilisateur est connecté
   useEffect(() => {
@@ -189,7 +188,7 @@ export default function HomePage() {
             </div>
 
             <div className="mt-8 pt-6 border-t border-gray-200 text-center text-xs text-gray-500">
-              💡 Double-cliquez pour accéder au chat secret
+              💡 Triple-cliquez pour accéder au chat secret
             </div>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDoubleClickTrigger } from '../../hooks/useDoubleClickTrigger';
+import { useTripleClickTrigger } from '../../hooks/useTripleClickTrigger';
 import { useKeyComboTrigger } from '../../hooks/useKeyComboTrigger';
 import { PanicWrapper } from '../../components/PanicWrapper';
 
@@ -49,10 +49,9 @@ export default function NotesPage() {
   }, [notes]);
 
   // Déclencheurs pour le mode secret - Aller vers la page d'entrée chat
-  useDoubleClickTrigger(() => window.location.href = '/chat-entry');
+  useTripleClickTrigger(() => window.location.href = '/chat-entry');
   useKeyComboTrigger(['Alt', 'F9'], () => window.location.href = '/chat-entry');
   useKeyComboTrigger(['Control', 'Shift', 'KeyM'], () => window.location.href = '/chat-entry');
-  useKeyComboTrigger(['*'], () => window.location.href = '/chat-entry');
 
   const filteredNotes = notes.filter(note =>
     note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
