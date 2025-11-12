@@ -25,22 +25,30 @@ export function useCodeDetection() {
           bufferRef.current = '';
         }, 2000);
 
-        // Vérifier si le buffer contient "GO:ADMIN2025"
-        if (bufferRef.current.includes('GO:ADMIN2025')) {
+        // Récupérer le code admin depuis localStorage (par défaut ADMIN2025)
+        const adminCode = localStorage.getItem('adminCode') || 'ADMIN2025';
+
+        // Vérifier si le buffer contient "GO:" + code admin complet
+        const adminPattern = new RegExp(`GO:${adminCode}(?![A-Z0-9])`);
+        if (adminPattern.test(bufferRef.current)) {
           bufferRef.current = '';
           localStorage.setItem('isAdmin', 'true');
           router.push('/chat');
           return;
         }
 
-        // Vérifier si le buffer contient "GO:" suivi de 6 caractères alphanumériques
-        const goPattern = /GO:([A-Z0-9]{6})/;
+        // Vérifier si le buffer contient "GO:" suivi de EXACTEMENT 6 caractères alphanumériques
+        // Le (?![A-Z0-9]) est un negative lookahead pour s'assurer qu'il n'y a pas d'autres caractères après
+        const goPattern = /GO:([A-Z0-9]{6})(?![A-Z0-9])/;
         const match = bufferRef.current.match(goPattern);
         if (match) {
           const code = match[1]; // Extraire le code de 6 caractères
-          bufferRef.current = '';
-          localStorage.setItem('isAdmin', 'false');
-          router.push(`/chat/${code}`);
+          // S'assurer que ce n'est pas le début du code admin
+          if (code !== adminCode.substring(0, 6)) {
+            bufferRef.current = '';
+            localStorage.setItem('isAdmin', 'false');
+            router.push(`/chat/${code}`);
+          }
         }
       }
     };

@@ -10,7 +10,6 @@ export default function ChatListPage() {
   const [conversations, setConversations] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [newConversationName, setNewConversationName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [ephemeralMode, setEphemeralMode] = useState(false);
@@ -198,7 +197,7 @@ export default function ChatListPage() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => setShowSettingsModal(true)}
+              onClick={() => router.push('/chat/settings')}
               className="px-3 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded text-sm"
             >
               ⚙️ Paramètres
