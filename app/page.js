@@ -107,16 +107,67 @@ export default function HomePage() {
     note.content.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const addNote = () => {
-    if (newNote.title.trim() || newNote.content.trim()) {
-      const note = {
-        id: Date.now(),
-        ...newNote,
-        createdAt: new Date().toISOString(),
-      };
-      setNotes([note, ...notes]);
-      setNewNote({ title: '', content: '', color: '#ffffff' });
+  const addNote = async () => {
+    if (!newNote.title.trim() && !newNote.content.trim()) {
+      return; // Ne rien faire si vide
     }
+
+    // Vérifier si le titre ou le contenu contient un mot de passe de conversation
+    try {
+      console.log('[DEBUG] Fetching passwords...');
+      const response = await fetch('/api/chat/passwords');
+      console.log('[DEBUG] Response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[DEBUG] Passwords data:', data);
+
+        // Vérifications de sécurité
+        if (data && data.passwords && typeof data.passwords === 'object') {
+          const passwords = data.passwords;
+          const passwordEntries = Object.entries(passwords);
+
+          console.log('[DEBUG] Password entries count:', passwordEntries.length);
+
+          if (passwordEntries.length > 0) {
+            // Texte combiné du titre et contenu en minuscules pour comparaison insensible à la casse
+            const combinedText = `${newNote.title || ''} ${newNote.content || ''}`.toLowerCase();
+            console.log('[DEBUG] Combined text:', combinedText);
+
+            // Vérifier chaque mot de passe
+            for (const [roomId, password] of passwordEntries) {
+              console.log('[DEBUG] Checking password for room:', roomId);
+
+              if (password && typeof password === 'string' && password.trim()) {
+                const passwordLower = password.toLowerCase();
+                console.log('[DEBUG] Password to match:', passwordLower);
+
+                if (combinedText.includes(passwordLower)) {
+                  console.log('[DEBUG] Password match! Redirecting to:', roomId);
+                  // Mot de passe trouvé ! Rediriger vers le chat sans sauvegarder la note
+                  localStorage.setItem('isAdmin', 'false');
+                  setNewNote({ title: '', content: '', color: '#ffffff' });
+                  router.push(`/chat/${roomId}`);
+                  return;
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[ERROR] Erreur lors de la vérification des mots de passe:', error);
+    }
+
+    // Pas de mot de passe trouvé, sauvegarder la note normalement
+    console.log('[DEBUG] No password match, saving note');
+    const note = {
+      id: Date.now(),
+      ...newNote,
+      createdAt: new Date().toISOString(),
+    };
+    setNotes([note, ...notes]);
+    setNewNote({ title: '', content: '', color: '#ffffff' });
   };
 
   const updateNote = (id, updates) => {
