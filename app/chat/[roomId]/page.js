@@ -251,6 +251,13 @@ export default function ChatRoomPage() {
     }
   };
 
+  const handleLogout = () => {
+    if (confirm('Se déconnecter de la session admin ?')) {
+      localStorage.removeItem('isAdmin');
+      router.push('/');
+    }
+  };
+
   return (
     <PanicWrapper>
       <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -278,14 +285,22 @@ export default function ChatRoomPage() {
             >
               Partager
             </button>
-            {/* Bouton effacer seulement pour admin */}
+            {/* Boutons admin */}
             {isAdmin && (
-              <button
-                onClick={clearMessages}
-                className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm"
-              >
-                Effacer
-              </button>
+              <>
+                <button
+                  onClick={clearMessages}
+                  className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm"
+                >
+                  Effacer
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm"
+                >
+                  🚪
+                </button>
+              </>
             )}
           </div>
         </div>

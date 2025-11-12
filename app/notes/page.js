@@ -1,17 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useDoubleClickTrigger } from '../../hooks/useDoubleClickTrigger';
 import { useKeyComboTrigger } from '../../hooks/useKeyComboTrigger';
+import { PanicWrapper } from '../../components/PanicWrapper';
 
 const colors = ['#ffffff', '#f28b82', '#fbbc04', '#fff475', '#ccff90', '#a7ffeb', '#cbf0f8', '#aecbfa', '#d7aefb', '#fdcfe8'];
 
 export default function NotesPage() {
+  const router = useRouter();
   const [notes, setNotes] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingNote, setEditingNote] = useState(null);
   const [newNote, setNewNote] = useState({ title: '', content: '', color: '#ffffff' });
   const [errorMessage, setErrorMessage] = useState('');
+  const [userName, setUserName] = useState('');
 
   useEffect(() => {
     // Vérifier les paramètres d'URL pour les erreurs
@@ -23,12 +27,20 @@ export default function NotesPage() {
     }
   }, []);
 
-  // Charger les notes depuis localStorage
+  // Charger les notes et le nom d'utilisateur depuis localStorage
   useEffect(() => {
     const savedNotes = localStorage.getItem('notesSync');
     if (savedNotes) {
       setNotes(JSON.parse(savedNotes));
     }
+
+    // Charger ou générer un nom d'utilisateur
+    let savedUserName = localStorage.getItem('userName');
+    if (!savedUserName) {
+      savedUserName = `Utilisateur${Math.floor(Math.random() * 10000)}`;
+      localStorage.setItem('userName', savedUserName);
+    }
+    setUserName(savedUserName);
   }, []);
 
   // Sauvegarder les notes dans localStorage
@@ -36,11 +48,11 @@ export default function NotesPage() {
     localStorage.setItem('notesSync', JSON.stringify(notes));
   }, [notes]);
 
-  // Déclencheurs pour le mode secret
-  useDoubleClickTrigger(() => window.location.href = '/chat');
-  useKeyComboTrigger(['Alt', 'F9'], () => window.location.href = '/chat');
-  useKeyComboTrigger(['Control', 'Shift', 'KeyM'], () => window.location.href = '/chat');
-  useKeyComboTrigger(['*'], () => window.location.href = '/chat');
+  // Déclencheurs pour le mode secret - Aller vers la page d'accueil chat
+  useDoubleClickTrigger(() => window.location.href = '/');
+  useKeyComboTrigger(['Alt', 'F9'], () => window.location.href = '/');
+  useKeyComboTrigger(['Control', 'Shift', 'KeyM'], () => window.location.href = '/');
+  useKeyComboTrigger(['*'], () => window.location.href = '/');
 
   const filteredNotes = notes.filter(note =>
     note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -68,125 +80,167 @@ export default function NotesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      {/* Message d'erreur */}
-      {errorMessage && (
-        <div className="max-w-4xl mx-auto mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-          {errorMessage}
-        </div>
-      )}
-
-      {/* Barre de recherche */}
-      <div className="max-w-4xl mx-auto mb-6">
-        <input
-          type="text"
-          placeholder="Rechercher des notes..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      {/* Nouvelle note */}
-      <div className="max-w-4xl mx-auto mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <input
-            type="text"
-            placeholder="Titre"
-            value={newNote.title}
-            onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
-            className="w-full mb-2 p-2 border-none outline-none text-lg font-medium"
-          />
-          <textarea
-            placeholder="Contenu de la note"
-            value={newNote.content}
-            onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
-            className="w-full mb-2 p-2 border-none outline-none resize-none"
-            rows="3"
-          />
-          <div className="flex justify-between items-center">
-            <div className="flex space-x-2">
-              {colors.slice(0, 5).map(color => (
-                <button
-                  key={color}
-                  onClick={() => setNewNote({ ...newNote, color })}
-                  className="w-6 h-6 rounded-full border-2 border-gray-300"
-                  style={{ backgroundColor: color }}
-                />
-              ))}
+    <PanicWrapper>
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-blue-600 text-white p-4 shadow-md">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold">📝 Mes Notes</h1>
+              <p className="text-xs opacity-90">Connecté en tant que {userName}</p>
             </div>
             <button
-              onClick={addNote}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              onClick={() => router.push('/')}
+              className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-sm font-semibold transition-colors"
             >
-              Ajouter
+              💬 Accéder au Chat
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Grille des notes */}
-      <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredNotes.map(note => (
-          <div
-            key={note.id}
-            className="p-4 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition-shadow"
-            style={{ backgroundColor: note.color }}
-            onClick={() => setEditingNote(note)}
-          >
-            <h3 className="font-medium mb-2">{note.title}</h3>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{note.content}</p>
-            <div className="mt-2 flex justify-end">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteNote(note.id);
-                }}
-                className="text-red-500 hover:text-red-700"
-              >
-                Supprimer
-              </button>
+        <div className="p-4">
+          {/* Message d'erreur */}
+          {errorMessage && (
+            <div className="max-w-4xl mx-auto mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+              {errorMessage}
             </div>
-          </div>
-        ))}
-      </div>
+          )}
 
-      {/* Modal d'édition */}
-      {editingNote && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full">
+          {/* Barre de recherche */}
+          <div className="max-w-4xl mx-auto mb-6">
             <input
               type="text"
-              value={editingNote.title}
-              onChange={(e) => setEditingNote({ ...editingNote, title: e.target.value })}
-              className="w-full mb-2 p-2 border border-gray-300 rounded"
+              placeholder="🔍 Rechercher dans mes notes..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
             />
-            <textarea
-              value={editingNote.content}
-              onChange={(e) => setEditingNote({ ...editingNote, content: e.target.value })}
-              className="w-full mb-4 p-2 border border-gray-300 rounded"
-              rows="5"
-            />
-            <div className="flex justify-between">
-              <button
-                onClick={() => setEditingNote(null)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={() => {
-                  updateNote(editingNote.id, editingNote);
-                  setEditingNote(null);
-                }}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Sauvegarder
-              </button>
+          </div>
+
+          {/* Nouvelle note */}
+          <div className="max-w-4xl mx-auto mb-6">
+            <div className="bg-white p-4 rounded-lg shadow-md border-2 border-blue-200">
+              <h2 className="text-lg font-semibold mb-3 text-blue-700">✏️ Nouvelle Note</h2>
+              <input
+                type="text"
+                placeholder="Titre de la note"
+                value={newNote.title}
+                onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
+                className="w-full mb-2 p-2 border-none outline-none text-lg font-medium"
+              />
+              <textarea
+                placeholder="Écrivez votre note ici..."
+                value={newNote.content}
+                onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
+                className="w-full mb-2 p-2 border-none outline-none resize-none"
+                rows="3"
+              />
+              <div className="flex justify-between items-center">
+                <div className="flex space-x-2">
+                  {colors.slice(0, 5).map(color => (
+                    <button
+                      key={color}
+                      onClick={() => setNewNote({ ...newNote, color })}
+                      className={`w-6 h-6 rounded-full border-2 ${newNote.color === color ? 'border-blue-500 ring-2 ring-blue-300' : 'border-gray-300'}`}
+                      style={{ backgroundColor: color }}
+                      title="Choisir une couleur"
+                    />
+                  ))}
+                </div>
+                <button
+                  onClick={addNote}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold transition-colors"
+                >
+                  ➕ Ajouter
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* Statistiques */}
+          <div className="max-w-4xl mx-auto mb-4">
+            <p className="text-sm text-gray-600">
+              {filteredNotes.length} {filteredNotes.length > 1 ? 'notes' : 'note'} {searchTerm && '(filtrées)'}
+            </p>
+          </div>
+
+          {/* Grille des notes */}
+          <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-8">
+            {filteredNotes.length === 0 ? (
+              <div className="col-span-full text-center py-12 text-gray-500">
+                <p className="text-lg mb-2">Aucune note</p>
+                <p className="text-sm">Créez votre première note ci-dessus!</p>
+              </div>
+            ) : (
+              filteredNotes.map(note => (
+                <div
+                  key={note.id}
+                  className="p-4 rounded-lg shadow-md cursor-pointer hover:shadow-xl transition-all hover:-translate-y-1"
+                  style={{ backgroundColor: note.color }}
+                  onClick={() => setEditingNote(note)}
+                >
+                  {note.title && <h3 className="font-semibold mb-2 text-lg">{note.title}</h3>}
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-6">{note.content}</p>
+                  <div className="mt-3 flex justify-between items-center text-xs text-gray-500">
+                    <span>{new Date(note.createdAt).toLocaleDateString('fr-FR')}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm('Supprimer cette note ?')) {
+                          deleteNote(note.id);
+                        }
+                      }}
+                      className="text-red-500 hover:text-red-700 font-medium"
+                    >
+                      🗑️ Supprimer
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Modal d'édition */}
+          {editingNote && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white p-6 rounded-lg max-w-md w-full shadow-2xl">
+                <h2 className="text-xl font-bold mb-4">Modifier la note</h2>
+                <input
+                  type="text"
+                  value={editingNote.title}
+                  onChange={(e) => setEditingNote({ ...editingNote, title: e.target.value })}
+                  placeholder="Titre"
+                  className="w-full mb-3 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <textarea
+                  value={editingNote.content}
+                  onChange={(e) => setEditingNote({ ...editingNote, content: e.target.value })}
+                  placeholder="Contenu"
+                  className="w-full mb-4 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows="8"
+                />
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setEditingNote(null)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={() => {
+                      updateNote(editingNote.id, editingNote);
+                      setEditingNote(null);
+                    }}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold"
+                  >
+                    Sauvegarder
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    </PanicWrapper>
   );
 }

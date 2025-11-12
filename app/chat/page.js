@@ -57,6 +57,13 @@ export default function ChatListPage() {
     localStorage.setItem('ephemeralMode', newValue.toString());
   };
 
+  const handleLogout = () => {
+    if (confirm('Se déconnecter de la session admin ?')) {
+      localStorage.removeItem('isAdmin');
+      router.push('/');
+    }
+  };
+
   const clearAllData = async () => {
     try {
       // Effacer toutes les conversations
@@ -189,12 +196,20 @@ export default function ChatListPage() {
             </div>
             <p className="text-xs opacity-90">Toutes vos conversations</p>
           </div>
-          <button
-            onClick={() => setShowSettingsModal(true)}
-            className="px-3 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded text-sm"
-          >
-            ⚙️ Paramètres
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className="px-3 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded text-sm"
+            >
+              ⚙️ Paramètres
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded text-sm"
+            >
+              🚪 Déconnexion
+            </button>
+          </div>
         </div>
 
         {/* Content */}
