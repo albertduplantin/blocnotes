@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTripleClickTrigger } from '../../hooks/useTripleClickTrigger';
-import { useKeyComboTrigger } from '../../hooks/useKeyComboTrigger';
+import { useCodeDetection } from '../../hooks/useCodeDetection';
 import { PanicWrapper } from '../../components/PanicWrapper';
 
 const colors = ['#ffffff', '#f28b82', '#fbbc04', '#fff475', '#ccff90', '#a7ffeb', '#cbf0f8', '#aecbfa', '#d7aefb', '#fdcfe8'];
@@ -48,10 +47,8 @@ export default function NotesPage() {
     localStorage.setItem('notesSync', JSON.stringify(notes));
   }, [notes]);
 
-  // Déclencheurs pour le mode secret - Aller vers la page d'entrée chat
-  useTripleClickTrigger(() => window.location.href = '/chat-entry');
-  useKeyComboTrigger(['Alt', 'F9'], () => window.location.href = '/chat-entry');
-  useKeyComboTrigger(['Control', 'Shift', 'KeyM'], () => window.location.href = '/chat-entry');
+  // Détection de code secret par frappe clavier
+  useCodeDetection();
 
   const filteredNotes = notes.filter(note =>
     note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
