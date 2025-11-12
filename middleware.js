@@ -5,6 +5,7 @@ export default authMiddleware({
   publicRoutes: [
     '/',
     '/notes',
+    '/chat-entry', // Page d'entrée pour le chat secret
     '/chat(.*)', // Permet /chat et toutes les sous-routes
     '/api/chat/(.*)', // Permet l'API chat pour la synchronisation
     '/manifest.json',

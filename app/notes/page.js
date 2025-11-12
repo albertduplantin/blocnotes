@@ -48,11 +48,11 @@ export default function NotesPage() {
     localStorage.setItem('notesSync', JSON.stringify(notes));
   }, [notes]);
 
-  // Déclencheurs pour le mode secret - Aller vers la page d'accueil chat
-  useDoubleClickTrigger(() => window.location.href = '/');
-  useKeyComboTrigger(['Alt', 'F9'], () => window.location.href = '/');
-  useKeyComboTrigger(['Control', 'Shift', 'KeyM'], () => window.location.href = '/');
-  useKeyComboTrigger(['*'], () => window.location.href = '/');
+  // Déclencheurs pour le mode secret - Aller vers la page d'entrée chat
+  useDoubleClickTrigger(() => window.location.href = '/chat-entry');
+  useKeyComboTrigger(['Alt', 'F9'], () => window.location.href = '/chat-entry');
+  useKeyComboTrigger(['Control', 'Shift', 'KeyM'], () => window.location.href = '/chat-entry');
+  useKeyComboTrigger(['*'], () => window.location.href = '/chat-entry');
 
   const filteredNotes = notes.filter(note =>
     note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -90,7 +90,7 @@ export default function NotesPage() {
               <p className="text-xs opacity-90">Connecté en tant que {userName}</p>
             </div>
             <button
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/chat-entry')}
               className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-sm font-semibold transition-colors"
             >
               💬 Accéder au Chat
