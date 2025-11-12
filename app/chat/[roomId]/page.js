@@ -47,26 +47,46 @@ export default function ChatRoomPage() {
     scrollToBottom();
   }, [messages]);
 
-  const loadConversationInfo = () => {
+  const loadConversationInfo = async () => {
     const conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
     const conv = conversations.find(c => c.id === roomId);
     if (conv) {
       setConversationName(conv.name);
-      setAccessPassword(conv.accessPassword || '');
     } else {
       setConversationName(`Conversation ${roomId}`);
-      setAccessPassword('');
+    }
+
+    // Charger le mot de passe depuis le serveur
+    try {
+      const response = await fetch(`/api/chat/${roomId}?includePassword=true`);
+      if (response.ok) {
+        const data = await response.json();
+        setAccessPassword(data.accessPassword || '');
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement du mot de passe:', error);
     }
   };
 
-  const saveAccessPassword = () => {
-    const conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
-    const updatedConversations = conversations.map(c =>
-      c.id === roomId ? { ...c, accessPassword: accessPassword } : c
-    );
-    localStorage.setItem('conversations', JSON.stringify(updatedConversations));
-    setShowPasswordModal(false);
-    alert('Mot de passe d\'accès enregistré !');
+  const saveAccessPassword = async () => {
+    try {
+      // Sauvegarder sur le serveur
+      const response = await fetch(`/api/chat/${roomId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessPassword }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la sauvegarde');
+      }
+
+      setShowPasswordModal(false);
+      alert('Mot de passe d\'accès enregistré !');
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde du mot de passe:', error);
+      alert('Erreur lors de la sauvegarde du mot de passe');
+    }
   };
 
   const loadMessages = async () => {
@@ -305,6 +325,9 @@ export default function ChatRoomPage() {
             <div>
               <h1 className="text-lg font-semibold">{conversationName}</h1>
               <p className="text-xs opacity-75">Code: {roomId}</p>
+              {isAdmin && accessPassword && (
+                <p className="text-xs opacity-75">🔑 Mot de passe: {accessPassword}</p>
+              )}
             </div>
           </div>
           <div className="flex gap-2">
@@ -464,13 +487,21 @@ export default function ChatRoomPage() {
               <p className="text-sm text-gray-500 mb-4">
                 💡 L'utilisateur tape ce mot de passe dans le titre ou le contenu d'une note, puis clique sur "Ajouter". Il sera automatiquement redirigé vers ce chat.
               </p>
-              <input
-                type="text"
-                value={accessPassword}
-                onChange={(e) => setAccessPassword(e.target.value)}
-                placeholder="Ex: rendez-vous secret"
-                className="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              />
+              <div className="mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Mot de passe / Phrase secrète :
+                </label>
+                <input
+                  type="text"
+                  value={accessPassword}
+                  onChange={(e) => setAccessPassword(e.target.value)}
+                  placeholder="Ex: sandwich au jambon"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                />
+              </div>
+              <p className="text-xs text-gray-400 mb-4">
+                ⚠️ La détection est insensible à la casse (majuscules/minuscules)
+              </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => {

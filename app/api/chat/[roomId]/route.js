@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 // Stockage en mémoire des messages (pour le dev - en prod utiliser une vraie DB)
 const messagesStore = new Map();
 
+// Stockage en mémoire des mots de passe d'accès par conversation (global pour partage)
+const passwordsStore = global.chatPasswordsStore || (global.chatPasswordsStore = new Map());
+
 // Nettoyer les vieux messages (plus de 24h)
 function cleanOldMessages() {
   const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
@@ -26,6 +29,7 @@ export async function GET(request, { params }) {
     const roomId = params.roomId;
     const url = new URL(request.url);
     const since = url.searchParams.get('since'); // Timestamp pour récupérer seulement les nouveaux messages
+    const includePassword = url.searchParams.get('includePassword'); // Pour récupérer aussi le mot de passe
 
     if (!roomId) {
       return NextResponse.json({ error: 'Room ID manquant' }, { status: 400 });
@@ -41,10 +45,17 @@ export async function GET(request, { params }) {
       );
     }
 
-    return NextResponse.json({
+    const response = {
       messages: roomMessages,
       count: roomMessages.length
-    });
+    };
+
+    // Ajouter le mot de passe si demandé
+    if (includePassword === 'true') {
+      response.accessPassword = passwordsStore.get(roomId) || '';
+    }
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error('Erreur lors de la récupération des messages:', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
@@ -106,6 +117,29 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Erreur lors de la suppression des messages:', error);
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+  }
+}
+
+export async function PUT(request, { params }) {
+  try {
+    const roomId = params.roomId;
+    const { accessPassword } = await request.json();
+
+    if (!roomId) {
+      return NextResponse.json({ error: 'Room ID manquant' }, { status: 400 });
+    }
+
+    // Sauvegarder le mot de passe (ou le supprimer si vide)
+    if (accessPassword && accessPassword.trim()) {
+      passwordsStore.set(roomId, accessPassword.trim());
+    } else {
+      passwordsStore.delete(roomId);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Erreur lors de la sauvegarde du mot de passe:', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }
