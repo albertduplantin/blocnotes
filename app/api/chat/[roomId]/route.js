@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { passwordsStore } from '../../../../lib/stores';
+import { getMessages, setMessages, getPassword, setPassword } from '../../../../lib/stores';
 
 // Stockage en mémoire des messages (pour le dev - en prod utiliser une vraie DB)
 const messagesStore = new Map();
@@ -50,7 +50,7 @@ export async function GET(request, { params }) {
 
     // Ajouter le mot de passe si demandé
     if (includePassword === 'true') {
-      response.accessPassword = passwordsStore.get(roomId) || '';
+      response.accessPassword = getPassword(roomId);
     }
 
     return NextResponse.json(response);
@@ -128,11 +128,11 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Room ID manquant' }, { status: 400 });
     }
 
-    // Sauvegarder le mot de passe (ou le supprimer si vide)
+    // Sauvegarder le mot de passe dans le store unifié
     if (accessPassword && accessPassword.trim()) {
-      passwordsStore.set(roomId, accessPassword.trim());
+      setPassword(roomId, accessPassword.trim());
     } else {
-      passwordsStore.delete(roomId);
+      setPassword(roomId, '');
     }
 
     return NextResponse.json({ success: true });

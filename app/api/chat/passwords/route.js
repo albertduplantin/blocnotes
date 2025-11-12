@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server';
-import { passwordsStore } from '../../../../lib/stores';
+import { getAllPasswords } from '../../../../lib/stores';
 
 export async function GET() {
   try {
-    // Retourner tous les mots de passe sous forme d'objet
-    const passwords = {};
-    for (const [roomId, password] of passwordsStore.entries()) {
-      passwords[roomId] = password;
-    }
+    // Retourner tous les mots de passe depuis le store unifié
+    const passwords = getAllPasswords();
 
     return NextResponse.json({ passwords });
   } catch (error) {
