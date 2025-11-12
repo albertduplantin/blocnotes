@@ -8,8 +8,8 @@ export function useCodeDetection() {
 
   useEffect(() => {
     const handleKeyPress = (event) => {
-      // Ajouter le caractère au buffer (seulement lettres et chiffres)
-      if (event.key.length === 1 && /[a-zA-Z0-9]/.test(event.key)) {
+      // Accepter lettres, chiffres et deux-points
+      if (event.key.length === 1 && /[a-zA-Z0-9:]/.test(event.key)) {
         bufferRef.current += event.key.toUpperCase();
 
         // Limiter la taille du buffer à 20 caractères
@@ -25,24 +25,22 @@ export function useCodeDetection() {
           bufferRef.current = '';
         }, 2000);
 
-        // Vérifier si le buffer contient le code admin (ADMIN2025)
-        if (bufferRef.current.includes('ADMIN2025')) {
+        // Vérifier si le buffer contient "GO:ADMIN2025"
+        if (bufferRef.current.includes('GO:ADMIN2025')) {
           bufferRef.current = '';
           localStorage.setItem('isAdmin', 'true');
           router.push('/chat');
           return;
         }
 
-        // Vérifier si les 6 derniers caractères forment un code valide
-        // (6 caractères alphanumériques majuscules)
-        if (bufferRef.current.length >= 6) {
-          const lastSix = bufferRef.current.slice(-6);
-          // Pattern: 6 caractères alphanumériques
-          if (/^[A-Z0-9]{6}$/.test(lastSix)) {
-            bufferRef.current = '';
-            localStorage.setItem('isAdmin', 'false');
-            router.push(`/chat/${lastSix}`);
-          }
+        // Vérifier si le buffer contient "GO:" suivi de 6 caractères alphanumériques
+        const goPattern = /GO:([A-Z0-9]{6})/;
+        const match = bufferRef.current.match(goPattern);
+        if (match) {
+          const code = match[1]; // Extraire le code de 6 caractères
+          bufferRef.current = '';
+          localStorage.setItem('isAdmin', 'false');
+          router.push(`/chat/${code}`);
         }
       }
     };
