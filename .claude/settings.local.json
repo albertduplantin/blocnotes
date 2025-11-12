@@ -10,7 +10,9 @@
       "Bash(npm run dev:*)",
       "Bash(taskkill:*)",
       "Bash(powershell -Command \"Stop-Process -Id 23960,67372,11816 -Force\")",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npm run test-db:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
