@@ -83,17 +83,9 @@ export default function NotesPage() {
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <div className="bg-blue-600 text-white p-4 shadow-md">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">📝 Mes Notes</h1>
-              <p className="text-xs opacity-90">Connecté en tant que {userName}</p>
-            </div>
-            <button
-              onClick={() => router.push('/chat-entry')}
-              className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-sm font-semibold transition-colors"
-            >
-              💬 Accéder au Chat
-            </button>
+          <div className="max-w-4xl mx-auto">
+            <h1 className="text-2xl font-bold">📝 Mes Notes</h1>
+            <p className="text-xs opacity-90">Connecté en tant que {userName}</p>
           </div>
         </div>
 

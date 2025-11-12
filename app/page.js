@@ -187,9 +187,6 @@ export default function HomePage() {
               </button>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-gray-200 text-center text-xs text-gray-500">
-              💡 Triple-cliquez pour accéder au chat secret
-            </div>
           </div>
         </div>
       </PanicWrapper>
