@@ -15,6 +15,7 @@ export default function ChatRoomPage() {
   const [conversationName, setConversationName] = useState('');
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [lastFetchTimestamp, setLastFetchTimestamp] = useState(Date.now());
+  const [isAdmin, setIsAdmin] = useState(false);
   const messagesEndRef = useRef(null);
   const pollingIntervalRef = useRef(null);
 
@@ -22,6 +23,10 @@ export default function ChatRoomPage() {
   useDoubleClickTrigger(() => router.push('/notes'));
 
   useEffect(() => {
+    // Vérifier le statut admin
+    const adminStatus = localStorage.getItem('isAdmin') === 'true';
+    setIsAdmin(adminStatus);
+
     loadConversationInfo();
     loadMessages();
 
@@ -252,12 +257,15 @@ export default function ChatRoomPage() {
         {/* Header - Style WhatsApp */}
         <div className="bg-teal-600 text-white p-3 flex items-center justify-between shadow-md">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push('/chat')}
-              className="text-white hover:bg-green-600 px-2 py-1 rounded"
-            >
-              ← Retour
-            </button>
+            {/* Bouton retour seulement pour admin */}
+            {isAdmin && (
+              <button
+                onClick={() => router.push('/chat')}
+                className="text-white hover:bg-teal-700 px-2 py-1 rounded"
+              >
+                ← Retour
+              </button>
+            )}
             <div>
               <h1 className="text-lg font-semibold">{conversationName}</h1>
               <p className="text-xs opacity-75">Code: {roomId}</p>
@@ -270,12 +278,15 @@ export default function ChatRoomPage() {
             >
               Partager
             </button>
-            <button
-              onClick={clearMessages}
-              className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm"
-            >
-              Effacer
-            </button>
+            {/* Bouton effacer seulement pour admin */}
+            {isAdmin && (
+              <button
+                onClick={clearMessages}
+                className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm"
+              >
+                Effacer
+              </button>
+            )}
           </div>
         </div>
 

@@ -25,9 +25,17 @@ export default function ChatListPage() {
   });
 
   useEffect(() => {
+    // Vérifier si l'utilisateur est admin
+    const isAdmin = localStorage.getItem('isAdmin') === 'true';
+    if (!isAdmin) {
+      // Non admin = redirection vers la page d'accueil
+      router.push('/');
+      return;
+    }
+
     loadConversations();
     loadSettings();
-  }, []);
+  }, [router]);
 
   const loadConversations = () => {
     const savedConversations = localStorage.getItem('conversations');
@@ -173,8 +181,13 @@ export default function ChatListPage() {
         {/* Header - Style WhatsApp */}
         <div className="bg-teal-600 text-white p-4 flex items-center justify-between shadow-md">
           <div>
-            <h1 className="text-xl font-bold">SecureChat</h1>
-            <p className="text-xs opacity-90">Conversations chiffrées</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold">SecureChat</h1>
+              <span className="px-2 py-0.5 bg-yellow-500 text-yellow-900 text-xs font-semibold rounded">
+                Admin
+              </span>
+            </div>
+            <p className="text-xs opacity-90">Toutes vos conversations</p>
           </div>
           <button
             onClick={() => setShowSettingsModal(true)}
