@@ -18,8 +18,12 @@ export default function ChatRoomPage() {
   const [accessPassword, setAccessPassword] = useState('');
   const [lastFetchTimestamp, setLastFetchTimestamp] = useState(Date.now());
   const [isAdmin, setIsAdmin] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef(null);
   const pollingIntervalRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Double-clic pour sortir du chat vers /notes
   useDoubleClickTrigger(() => router.push('/notes'));
@@ -108,17 +112,90 @@ export default function ChatRoomPage() {
     }
   };
 
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Vérifier que c'est une image
+    if (!file.type.startsWith('image/')) {
+      alert('Veuillez sélectionner une image');
+      return;
+    }
+
+    // Vérifier la taille (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('L\'image ne doit pas dépasser 5MB');
+      return;
+    }
+
+    setSelectedImage(file);
+
+    // Créer une preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const cancelImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const uploadImage = async () => {
+    if (!selectedImage) return null;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedImage);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de l\'upload');
+      }
+
+      const data = await response.json();
+      return data.url;
+    } catch (error) {
+      console.error('Erreur lors de l\'upload:', error);
+      alert('Erreur lors de l\'envoi de l\'image');
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const sendMessage = async () => {
-    if (!newMessage.trim()) return;
+    const hasText = newMessage.trim();
+    const hasImage = selectedImage;
+
+    if (!hasText && !hasImage) return;
 
     const messageContent = newMessage;
     setNewMessage(''); // Vider immédiatement pour UX réactive
 
     try {
+      // Uploader l'image si présente
+      let imageUrl = null;
+      if (hasImage) {
+        imageUrl = await uploadImage();
+        if (!imageUrl) return; // Annuler si l'upload échoue
+      }
+
       const message = {
-        id: `${roomId}_${Date.now()}`,
+        id: `${roomId}_${Date.now()}_${Math.random().toString(36).substring(7)}`,
         roomId: roomId,
         content: messageContent,
+        imageUrl: imageUrl, // Ajouter l'URL de l'image
         timestamp: new Date().toISOString(),
         sentByAdmin: isAdmin, // Identifier qui envoie le message
       };
@@ -133,19 +210,24 @@ export default function ChatRoomPage() {
       store.add(message);
 
       // Mettre à jour le dernier message dans la liste des conversations
-      updateLastMessage(messageContent);
+      const lastMessageText = imageUrl ? (messageContent || '📷 Photo') : messageContent;
+      updateLastMessage(lastMessageText);
 
-      // Envoyer au serveur pour synchronisation (avec l'ID du message)
+      // Envoyer au serveur pour synchronisation
       await fetch(`/api/chat/${roomId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: message.id, // Envoyer l'ID créé par le client
+          id: message.id,
           content: messageContent,
+          imageUrl: imageUrl,
           timestamp: message.timestamp,
-          sentByAdmin: isAdmin // Envoyer qui a envoyé le message
+          sentByAdmin: isAdmin
         }),
       });
+
+      // Réinitialiser l'image
+      cancelImage();
 
       // Marquer le timestamp pour éviter de récupérer notre propre message
       setLastFetchTimestamp(Date.now());
@@ -399,7 +481,22 @@ export default function ChatRoomPage() {
                       backgroundColor: isMyMessage ? '#dcf8c6' : '#ffffff'
                     }}
                   >
-                    <p className="text-sm text-gray-800 break-words">{message.content}</p>
+                    {/* Image si présente */}
+                    {message.imageUrl && (
+                      <div className="mb-2">
+                        <img
+                          src={message.imageUrl}
+                          alt="Image partagée"
+                          className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90"
+                          style={{ maxHeight: '300px', objectFit: 'contain' }}
+                          onClick={() => window.open(message.imageUrl, '_blank')}
+                        />
+                      </div>
+                    )}
+                    {/* Texte du message */}
+                    {message.content && (
+                      <p className="text-sm text-gray-800 break-words">{message.content}</p>
+                    )}
                     <div className={`flex items-center justify-end gap-1 mt-1`}>
                       <span className="text-xs text-gray-500">
                         {new Date(message.timestamp).toLocaleTimeString('fr-FR', {
@@ -421,28 +518,105 @@ export default function ChatRoomPage() {
 
         {/* Input - Style WhatsApp */}
         <div className="bg-gray-100 p-3 border-t border-gray-300">
+          {/* Preview de l'image sélectionnée */}
+          {imagePreview && (
+            <div className="mb-3 relative max-w-sm mx-auto bg-white p-2 rounded-lg shadow-md">
+              <button
+                onClick={cancelImage}
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 z-10"
+              >
+                ✕
+              </button>
+              <img
+                src={imagePreview}
+                alt="Preview"
+                className="rounded-lg max-w-full h-auto"
+                style={{ maxHeight: '200px', objectFit: 'contain' }}
+              />
+              <p className="text-xs text-gray-500 text-center mt-2">
+                {selectedImage?.name}
+              </p>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 max-w-4xl mx-auto">
+            {/* Input fichier caché */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+
+            {/* Bouton photo */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="p-2 bg-white hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
+              title="Ajouter une photo"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-6 h-6 text-gray-600"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                />
+              </svg>
+            </button>
+
             <input
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+              onKeyPress={(e) => e.key === 'Enter' && !uploading && sendMessage()}
+              disabled={uploading}
               placeholder="Message"
               className="flex-1 px-4 py-3 bg-white border-none rounded-full focus:outline-none text-sm"
             />
             <button
               onClick={sendMessage}
-              className="w-12 h-12 bg-teal-600 hover:bg-teal-700 text-white rounded-full flex items-center justify-center shadow-lg transition-all"
-              disabled={!newMessage.trim()}
+              className="w-12 h-12 bg-teal-600 hover:bg-teal-700 text-white rounded-full flex items-center justify-center shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={uploading || (!newMessage.trim() && !selectedImage)}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                className="w-5 h-5"
-              >
-                <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
-              </svg>
+              {uploading ? (
+                <svg
+                  className="animate-spin h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className="w-5 h-5"
+                >
+                  <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+                </svg>
+              )}
             </button>
           </div>
         </div>

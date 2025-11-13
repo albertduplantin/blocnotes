@@ -1,26 +1,23 @@
 import { authMiddleware } from '@clerk/nextjs/server';
 
+// Configuration du middleware avec routes publiques
 export default authMiddleware({
-  // Routes qui nécessitent une authentification
+  // Routes complètement publiques
   publicRoutes: [
     '/',
     '/notes',
-    '/chat-entry', // Page d'entrée pour le chat secret
-    '/chat(.*)', // Permet /chat et toutes les sous-routes
-    '/api/chat/(.*)', // Permet l'API chat pour la synchronisation
+    '/chat-entry',
+    '/chat(.*)',
     '/manifest.json',
     '/favicon.svg',
     '/icon-192x192.svg',
     '/icon-512x512.svg',
-    '/sw.js'
+    '/sw.js',
+    '/api/chat(.*)',
+    '/api/upload(.*)',
   ],
-  ignoredRoutes: [
-    '/api/cleanup',
-    '/api/messages',
-    '/api/pair',
-    '/api/chat/passwords',
-    '/api/chat/(.*)'
-  ], // Routes publiques sans authentification
+  // Ne pas rediriger vers sign-in pour ces routes
+  ignoredRoutes: [],
 });
 
 // Configuration par défaut de Clerk pour éviter les conflits
