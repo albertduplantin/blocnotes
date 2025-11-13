@@ -14,8 +14,6 @@ export default function ChatRoomPage() {
   const [newMessage, setNewMessage] = useState('');
   const [conversationName, setConversationName] = useState('');
   const [showCodeModal, setShowCodeModal] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [accessPassword, setAccessPassword] = useState('');
   const [lastFetchTimestamp, setLastFetchTimestamp] = useState(Date.now());
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -51,45 +49,13 @@ export default function ChatRoomPage() {
     scrollToBottom();
   }, [messages]);
 
-  const loadConversationInfo = async () => {
+  const loadConversationInfo = () => {
     const conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
     const conv = conversations.find(c => c.id === roomId);
     if (conv) {
       setConversationName(conv.name);
     } else {
       setConversationName(`Conversation ${roomId}`);
-    }
-
-    // Charger le mot de passe depuis le serveur
-    try {
-      const response = await fetch(`/api/chat/${roomId}?includePassword=true`);
-      if (response.ok) {
-        const data = await response.json();
-        setAccessPassword(data.accessPassword || '');
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement du mot de passe:', error);
-    }
-  };
-
-  const saveAccessPassword = async () => {
-    try {
-      // Sauvegarder sur le serveur
-      const response = await fetch(`/api/chat/${roomId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessPassword }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de la sauvegarde');
-      }
-
-      setShowPasswordModal(false);
-      alert('Mot de passe d\'accès enregistré !');
-    } catch (error) {
-      console.error('Erreur lors de la sauvegarde du mot de passe:', error);
-      alert('Erreur lors de la sauvegarde du mot de passe');
     }
   };
 
@@ -407,9 +373,6 @@ export default function ChatRoomPage() {
             <div>
               <h1 className="text-lg font-semibold">{conversationName}</h1>
               <p className="text-xs opacity-75">Code: {roomId}</p>
-              {isAdmin && accessPassword && (
-                <p className="text-xs opacity-75">🔑 Mot de passe: {accessPassword}</p>
-              )}
             </div>
           </div>
           <div className="flex gap-2">
@@ -422,12 +385,6 @@ export default function ChatRoomPage() {
             {/* Boutons admin */}
             {isAdmin && (
               <>
-                <button
-                  onClick={() => setShowPasswordModal(true)}
-                  className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-white rounded text-sm"
-                >
-                  🔑 Mot de passe
-                </button>
                 <button
                   onClick={clearMessages}
                   className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm"
@@ -650,52 +607,6 @@ export default function ChatRoomPage() {
           </div>
         )}
 
-        {/* Access Password Modal */}
-        {showPasswordModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white p-6 rounded-lg max-w-md w-full">
-              <h2 className="text-xl font-bold mb-4">🔑 Mot de passe d'accès</h2>
-              <p className="text-gray-600 mb-3">
-                Configurez un mot de passe ou une phrase que l'utilisateur devra taper dans une note pour accéder à ce chat.
-              </p>
-              <p className="text-sm text-gray-500 mb-4">
-                💡 L'utilisateur tape ce mot de passe dans le titre ou le contenu d'une note, puis clique sur "Ajouter". Il sera automatiquement redirigé vers ce chat.
-              </p>
-              <div className="mb-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mot de passe / Phrase secrète :
-                </label>
-                <input
-                  type="text"
-                  value={accessPassword}
-                  onChange={(e) => setAccessPassword(e.target.value)}
-                  placeholder="Ex: sandwich au jambon"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                />
-              </div>
-              <p className="text-xs text-gray-400 mb-4">
-                ⚠️ La détection est insensible à la casse (majuscules/minuscules)
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowPasswordModal(false);
-                    loadConversationInfo(); // Recharger pour annuler les changements
-                  }}
-                  className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  Annuler
-                </button>
-                <button
-                  onClick={saveAccessPassword}
-                  className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
-                >
-                  Enregistrer
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </PanicWrapper>
   );

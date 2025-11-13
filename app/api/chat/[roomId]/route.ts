@@ -1,12 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
 
 /**
- * Route de compatibilité pour l'ancien frontend
- * TODO: Migrer le frontend vers /api/passwords/[roomId]
+ * Simple in-memory message storage for conversations
+ * No database, no authentication - just simple message exchange
  */
 
-// GET - Récupérer le mot de passe d'accès
+// In-memory storage for messages
+const messagesStore = new Map<string, any[]>();
+
+// Clean old messages (older than 24 hours)
+function cleanOldMessages() {
+  const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+  for (const [roomId, messages] of messagesStore.entries()) {
+    const filteredMessages = messages.filter(msg =>
+      new Date(msg.timestamp).getTime() > oneDayAgo
+    );
+    if (filteredMessages.length === 0) {
+      messagesStore.delete(roomId);
+    } else {
+      messagesStore.set(roomId, filteredMessages);
+    }
+  }
+}
+
+// Clean every 10 minutes
+setInterval(cleanOldMessages, 10 * 60 * 1000);
+
+// GET - Get messages for a room
 export async function GET(
   request: NextRequest,
   context: { params: { roomId: string } }
@@ -14,64 +34,87 @@ export async function GET(
   try {
     const { roomId } = context.params;
     const url = new URL(request.url);
-    const includePassword = url.searchParams.get('includePassword');
+    const since = url.searchParams.get('since');
 
-    if (includePassword === 'true') {
-      // Récupérer le mot de passe depuis la table conversation_passwords
-      const result = await sql`
-        SELECT password_plaintext as password FROM conversation_passwords
-        WHERE room_id = ${roomId}
-      `;
+    let roomMessages = messagesStore.get(roomId) || [];
 
-      return NextResponse.json({
-        accessPassword: result.rows[0]?.password || '',
-      });
+    // Filter by timestamp if 'since' is provided
+    if (since) {
+      const sinceTimestamp = parseInt(since);
+      roomMessages = roomMessages.filter(msg =>
+        new Date(msg.timestamp).getTime() > sinceTimestamp
+      );
     }
 
-    return NextResponse.json({ accessPassword: '' });
+    return NextResponse.json({
+      messages: roomMessages,
+      count: roomMessages.length
+    });
   } catch (error) {
-    console.error('Error fetching password:', error);
-    return NextResponse.json({ accessPassword: '' });
+    console.error('Error fetching messages:', error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
 
-// PUT - Sauvegarder le mot de passe d'accès
-export async function PUT(
+// POST - Send a message
+export async function POST(
   request: NextRequest,
   context: { params: { roomId: string } }
 ) {
   try {
     const { roomId } = context.params;
-    const body = await request.json();
-    const { accessPassword } = body;
+    const { id, content, imageUrl, timestamp, sentByAdmin } = await request.json();
 
-    if (!accessPassword || accessPassword.trim() === '') {
-      // Supprimer le mot de passe
-      await sql`
-        DELETE FROM conversation_passwords WHERE room_id = ${roomId}
-      `;
-    } else {
-      // Sauvegarder le mot de passe (en plaintext pour la détection ET hashé pour la sécurité)
-      const passwordLower = accessPassword.toLowerCase();
-
-      await sql`
-        INSERT INTO conversation_passwords (room_id, password_plaintext, password_hash, updated_at)
-        VALUES (${roomId}, ${passwordLower}, ${passwordLower}, CURRENT_TIMESTAMP)
-        ON CONFLICT (room_id)
-        DO UPDATE SET
-          password_plaintext = ${passwordLower},
-          password_hash = ${passwordLower},
-          updated_at = CURRENT_TIMESTAMP
-      `;
+    if (!content && !imageUrl) {
+      return NextResponse.json({ error: 'Content or image required' }, { status: 400 });
     }
+
+    // Use client-provided ID or generate one
+    const messageId = id || `${roomId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const messageTimestamp = timestamp || new Date().toISOString();
+
+    const message = {
+      id: messageId,
+      roomId,
+      content: content || '',
+      imageUrl: imageUrl || null,
+      timestamp: messageTimestamp,
+      sentByAdmin: sentByAdmin || false,
+    };
+
+    // Get existing messages for this room
+    const roomMessages = messagesStore.get(roomId) || [];
+
+    // Check if message already exists (avoid duplicates)
+    const exists = roomMessages.some(msg => msg.id === messageId);
+    if (!exists) {
+      roomMessages.push(message);
+      messagesStore.set(roomId, roomMessages);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message
+    });
+  } catch (error) {
+    console.error('Error sending message:', error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+// DELETE - Delete all messages in a room
+export async function DELETE(
+  request: NextRequest,
+  context: { params: { roomId: string } }
+) {
+  try {
+    const { roomId } = context.params;
+
+    messagesStore.delete(roomId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[API /api/chat/[roomId]] Error saving password:', error);
-    console.error('[API /api/chat/[roomId]] Stack:', error instanceof Error ? error.stack : 'No stack');
-    return NextResponse.json(
-      { error: 'Erreur lors de la sauvegarde', details: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
-    );
+    console.error('Error deleting messages:', error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
