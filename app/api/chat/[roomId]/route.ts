@@ -9,10 +9,10 @@ import { sql } from '@vercel/postgres';
 // GET - Récupérer le mot de passe d'accès
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ roomId: string }> }
+  context: { params: { roomId: string } }
 ) {
   try {
-    const { roomId } = await params;
+    const { roomId } = context.params;
     const url = new URL(request.url);
     const includePassword = url.searchParams.get('includePassword');
 
@@ -38,10 +38,10 @@ export async function GET(
 // PUT - Sauvegarder le mot de passe d'accès
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ roomId: string }> }
+  context: { params: { roomId: string } }
 ) {
   try {
-    const { roomId } = await params;
+    const { roomId } = context.params;
     const body = await request.json();
     const { accessPassword } = body;
 
@@ -67,9 +67,10 @@ export async function PUT(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error saving password:', error);
+    console.error('[API /api/chat/[roomId]] Error saving password:', error);
+    console.error('[API /api/chat/[roomId]] Stack:', error instanceof Error ? error.stack : 'No stack');
     return NextResponse.json(
-      { error: 'Erreur lors de la sauvegarde' },
+      { error: 'Erreur lors de la sauvegarde', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
