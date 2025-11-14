@@ -68,9 +68,59 @@ input, textarea {
   animation: fadeIn 0.3s ease-in;
 }
 
-/* Responsive */
+/* Mobile optimizations */
 @media (max-width: 768px) {
   .message-bubble {
     max-width: 85%;
+  }
+
+  /* Touch-friendly button sizes */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Better mobile keyboard handling */
+  input, textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  /* Mobile-friendly spacing */
+  .note-card {
+    margin-bottom: 1rem;
+  }
+}
+
+/* Safe area insets for notched devices */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Prevent text selection on buttons and icons */
+button, .icon {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Mobile pull-to-refresh prevention for chat */
+.chat-container {
+  overscroll-behavior-y: contain;
+}
+
+/* Better mobile focus states */
+@media (max-width: 768px) {
+  input:focus, textarea:focus, button:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
   }
 }

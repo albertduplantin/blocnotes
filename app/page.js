@@ -6,6 +6,8 @@ import { useCodeDetection } from '../hooks/useCodeDetection';
 import { PanicWrapper } from '../components/PanicWrapper';
 import { MobileMenu } from '../components/MobileMenu';
 import { InstallButton } from '../components/InstallButton';
+import ThemeToggle from '../components/ThemeToggle';
+import NotificationButton from '../components/NotificationButton';
 
 const colors = ['#ffffff', '#f28b82', '#fbbc04', '#fff475', '#ccff90', '#a7ffeb', '#cbf0f8', '#aecbfa', '#d7aefb', '#fdcfe8'];
 
@@ -246,9 +248,9 @@ export default function HomePage() {
   // Interface principale des notes (quand connecté)
   return (
     <PanicWrapper>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Header */}
-        <div className="bg-blue-600 text-white p-4 shadow-md relative">
+        <div className="bg-blue-600 dark:bg-blue-800 text-white p-4 shadow-md relative">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold">📝 Mes Notes</h1>
@@ -256,6 +258,12 @@ export default function HomePage() {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Notification button */}
+              <NotificationButton />
+
+              {/* Theme toggle */}
+              <ThemeToggle />
+
               {/* Install button */}
               <InstallButton />
 
@@ -281,26 +289,26 @@ export default function HomePage() {
               placeholder="🔍 Rechercher dans mes notes..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             />
           </div>
 
           {/* Nouvelle note */}
           <div className="max-w-4xl mx-auto mb-6">
-            <div className="bg-white p-4 rounded-lg shadow-md border-2 border-blue-200">
-              <h2 className="text-lg font-semibold mb-3 text-blue-700">✏️ Nouvelle Note</h2>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md border-2 border-blue-200 dark:border-blue-700">
+              <h2 className="text-lg font-semibold mb-3 text-blue-700 dark:text-blue-400">✏️ Nouvelle Note</h2>
               <input
                 type="text"
                 placeholder="Titre de la note"
                 value={newNote.title}
                 onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
-                className="w-full mb-2 p-2 border-none outline-none text-lg font-medium"
+                className="w-full mb-2 p-2 border-none outline-none text-lg font-medium bg-transparent text-gray-900 dark:text-gray-100"
               />
               <textarea
                 placeholder="Écrivez votre note ici..."
                 value={newNote.content}
                 onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
-                className="w-full mb-2 p-2 border-none outline-none resize-none"
+                className="w-full mb-2 p-2 border-none outline-none resize-none bg-transparent text-gray-900 dark:text-gray-100"
                 rows="3"
               />
               <div className="flex justify-between items-center">
@@ -327,7 +335,7 @@ export default function HomePage() {
 
           {/* Statistiques */}
           <div className="max-w-4xl mx-auto mb-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               {filteredNotes.length} {filteredNotes.length > 1 ? 'notes' : 'note'} {searchTerm && '(filtrées)'}
             </p>
           </div>
@@ -335,7 +343,7 @@ export default function HomePage() {
           {/* Grille des notes */}
           <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-8">
             {filteredNotes.length === 0 ? (
-              <div className="col-span-full text-center py-12 text-gray-500">
+              <div className="col-span-full text-center py-12 text-gray-500 dark:text-gray-400">
                 <p className="text-lg mb-2">Aucune note</p>
                 <p className="text-sm">Créez votre première note ci-dessus!</p>
               </div>
@@ -371,26 +379,26 @@ export default function HomePage() {
           {/* Modal d'édition */}
           {editingNote && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-              <div className="bg-white p-6 rounded-lg max-w-md w-full shadow-2xl">
-                <h2 className="text-xl font-bold mb-4">Modifier la note</h2>
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md w-full shadow-2xl">
+                <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">Modifier la note</h2>
                 <input
                   type="text"
                   value={editingNote.title}
                   onChange={(e) => setEditingNote({ ...editingNote, title: e.target.value })}
                   placeholder="Titre"
-                  className="w-full mb-3 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full mb-3 p-3 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                 />
                 <textarea
                   value={editingNote.content}
                   onChange={(e) => setEditingNote({ ...editingNote, content: e.target.value })}
                   placeholder="Contenu"
-                  className="w-full mb-4 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full mb-4 p-3 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                   rows="8"
                 />
                 <div className="flex justify-end gap-3">
                   <button
                     onClick={() => setEditingNote(null)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+                    className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium"
                   >
                     Annuler
                   </button>

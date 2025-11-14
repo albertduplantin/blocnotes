@@ -5,6 +5,9 @@ import { useRouter, useParams } from 'next/navigation';
 import { PanicWrapper } from '../../../components/PanicWrapper';
 import { useDoubleClickTrigger } from '../../../hooks/useDoubleClickTrigger';
 import { getUserColorScheme } from '../../../utils/colorUtils';
+import ThemeToggle from '../../../components/ThemeToggle';
+import { showMessageNotification } from '../../../utils/notifications';
+import NotificationButton from '../../../components/NotificationButton';
 
 export default function ChatRoomPage() {
   const router = useRouter();
@@ -287,6 +290,20 @@ export default function ChatRoomPage() {
                 saveMessagesToIndexedDB(newMessages);
                 setLastFetchTimestamp(Date.now());
 
+                // Show notifications for messages from other users when page is not visible
+                if (document.visibilityState === 'hidden') {
+                  newMessages.forEach(message => {
+                    // Only show notification if message is from another user
+                    // If I'm admin, show notifications for user messages (sentByAdmin === false)
+                    // If I'm user, show notifications for admin messages (sentByAdmin === true)
+                    const isFromOtherUser = isAdmin ? !message.sentByAdmin : message.sentByAdmin;
+
+                    if (isFromOtherUser) {
+                      showMessageNotification(message, roomId);
+                    }
+                  });
+                }
+
                 return [...prev, ...newMessages].sort((a, b) =>
                   new Date(a.timestamp) - new Date(b.timestamp)
                 );
@@ -480,7 +497,7 @@ export default function ChatRoomPage() {
 
   return (
     <PanicWrapper>
-      <div className="min-h-screen bg-gray-200 flex flex-col">
+      <div className="min-h-screen bg-gray-200 dark:bg-gray-900 flex flex-col">
         {/* Toast Notification */}
         {toast && (
           <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white animate-slide-in ${
@@ -502,56 +519,64 @@ export default function ChatRoomPage() {
 
         {/* Loading Overlay */}
         {loading && (
-          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-40">
-            <div className="bg-white rounded-lg p-6 flex items-center gap-3">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
-              <span className="text-gray-700">Chargement...</span>
+          <div className="fixed inset-0 bg-black bg-opacity-30 dark:bg-opacity-60 flex items-center justify-center z-40">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 flex items-center gap-3">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 dark:border-teal-400"></div>
+              <span className="text-gray-700 dark:text-gray-200">Chargement...</span>
             </div>
           </div>
         )}
 
         {/* Header - Style WhatsApp */}
-        <div className="bg-teal-600 text-white p-3 flex items-center justify-between shadow-md">
-          <div className="flex items-center gap-3">
+        <div className="bg-teal-600 dark:bg-teal-800 text-white p-2 sm:p-3 flex items-center justify-between shadow-md">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             {/* Bouton retour seulement pour admin */}
             {isAdmin && (
               <button
                 onClick={() => router.push('/chat')}
-                className="text-white hover:bg-teal-700 px-2 py-1 rounded"
+                className="text-white hover:bg-teal-700 dark:hover:bg-teal-900 active:bg-teal-800 dark:active:bg-teal-950 px-2 py-1 rounded min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation"
+                aria-label="Retour"
               >
-                ← Retour
+                ← <span className="hidden sm:inline ml-1">Retour</span>
               </button>
             )}
-            <div>
-              <h1 className="text-lg font-semibold">{conversationName}</h1>
-              <p className="text-xs opacity-75">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base sm:text-lg font-semibold truncate">{conversationName}</h1>
+              <p className="text-xs opacity-75 truncate">
                 {otherUserTyping ? (
-                  <span className="text-green-200">en train d'écrire...</span>
+                  <span className="text-green-200 dark:text-green-300">en train d'écrire...</span>
                 ) : (
-                  `Code: ${roomId}`
+                  <span className="hidden sm:inline">{`Code: ${roomId}`}</span>
                 )}
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 sm:gap-3 items-center flex-wrap justify-end">
+            <ThemeToggle />
+            <NotificationButton />
             <button
               onClick={() => setShowCodeModal(true)}
-              className="px-3 py-1 bg-teal-700 hover:bg-teal-800 text-white rounded text-sm"
+              className="px-2 sm:px-3 py-1 bg-teal-700 dark:bg-teal-900 hover:bg-teal-800 dark:hover:bg-teal-950 active:bg-teal-900 dark:active:bg-black text-white rounded text-xs sm:text-sm min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation"
+              aria-label="Partager le code de conversation"
             >
-              Partager
+              <span className="hidden sm:inline">Partager</span>
+              <span className="sm:hidden">📤</span>
             </button>
             {/* Boutons admin */}
             {isAdmin && (
               <>
                 <button
                   onClick={clearMessages}
-                  className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm"
+                  className="px-2 sm:px-3 py-1 bg-red-500 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-700 active:bg-red-700 dark:active:bg-red-800 text-white rounded text-xs sm:text-sm min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation"
+                  aria-label="Effacer les messages"
                 >
-                  Effacer
+                  <span className="hidden sm:inline">Effacer</span>
+                  <span className="sm:hidden">🗑️</span>
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm"
+                  className="px-2 sm:px-3 py-1 bg-red-600 dark:bg-red-700 hover:bg-red-700 dark:hover:bg-red-800 active:bg-red-800 dark:active:bg-red-900 text-white rounded text-xs sm:text-sm min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation"
+                  aria-label="Déconnexion admin"
                 >
                   🚪
                 </button>
@@ -562,17 +587,16 @@ export default function ChatRoomPage() {
 
         {/* Messages - Style WhatsApp */}
         <div
-          className="flex-1 overflow-y-auto p-4 space-y-2"
+          className="chat-container flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 bg-[#efeae2] dark:bg-gray-800"
           style={{
             backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h100v100H0z\' fill=\'%23efeae2\'/%3E%3Cpath d=\'M20 10l5 5-5 5m15-10l5 5-5 5\' stroke=\'%23d4cfc5\' stroke-width=\'0.3\' fill=\'none\'/%3E%3C/svg%3E")',
-            backgroundColor: '#efeae2'
           }}
         >
           {messages.length === 0 ? (
-            <div className="text-center text-gray-600 mt-8 bg-yellow-100 border border-yellow-300 rounded-lg p-4 mx-auto max-w-sm">
+            <div className="text-center text-gray-600 dark:text-gray-300 mt-8 bg-yellow-100 dark:bg-yellow-900 border border-yellow-300 dark:border-yellow-700 rounded-lg p-4 mx-auto max-w-sm">
               <p className="text-sm">🔒 Messages chiffrés de bout en bout</p>
               <p className="text-xs mt-2">Code: <strong>{roomId}</strong></p>
-              <p className="text-xs mt-1 text-gray-500">Partagez ce code pour commencer</p>
+              <p className="text-xs mt-1 text-gray-500 dark:text-gray-400">Partagez ce code pour commencer</p>
             </div>
           ) : (
             <>
@@ -592,7 +616,7 @@ export default function ChatRoomPage() {
                   className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-xs md:max-w-md px-3 py-2 shadow-sm ${
+                    className={`max-w-[85%] sm:max-w-xs md:max-w-md px-3 py-2 shadow-sm ${
                       isMyMessage
                         ? 'rounded-tl-lg rounded-tr-lg rounded-bl-lg'
                         : 'rounded-tl-lg rounded-tr-lg rounded-br-lg'
@@ -608,8 +632,8 @@ export default function ChatRoomPage() {
                         <img
                           src={message.imageUrl}
                           alt="Image partagée"
-                          className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90"
-                          style={{ maxHeight: '300px', objectFit: 'contain' }}
+                          className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 active:opacity-80 touch-manipulation"
+                          style={{ maxHeight: '250px', objectFit: 'contain' }}
                           onClick={() => window.open(message.imageUrl, '_blank')}
                         />
                       </div>
@@ -621,14 +645,14 @@ export default function ChatRoomPage() {
                       </p>
                     )}
                     <div className={`flex items-center justify-end gap-1 mt-1`}>
-                      <span className="text-xs opacity-70" style={{ color: colorScheme.text }}>
+                      <span className="text-[10px] sm:text-xs opacity-70" style={{ color: colorScheme.text }}>
                         {new Date(message.timestamp).toLocaleTimeString('fr-FR', {
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
                       </span>
                       {isMyMessage && (
-                        <span className="text-xs opacity-70" style={{ color: colorScheme.text }}>✓✓</span>
+                        <span className="text-[10px] sm:text-xs opacity-70" style={{ color: colorScheme.text }}>✓✓</span>
                       )}
                     </div>
                   </div>
@@ -639,11 +663,11 @@ export default function ChatRoomPage() {
               {/* Typing Indicator */}
               {otherUserTyping && (
                 <div className="flex justify-start mb-2">
-                  <div className="bg-white px-4 py-2 rounded-lg shadow-sm">
+                  <div className="bg-white dark:bg-gray-700 px-4 py-2 rounded-lg shadow-sm">
                     <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                     </div>
                   </div>
                 </div>
@@ -654,13 +678,14 @@ export default function ChatRoomPage() {
         </div>
 
         {/* Input - Style WhatsApp */}
-        <div className="bg-gray-100 p-3 border-t border-gray-300">
+        <div className="bg-gray-100 dark:bg-gray-800 p-2 sm:p-3 border-t border-gray-300 dark:border-gray-700">
           {/* Preview de l'image sélectionnée */}
           {imagePreview && (
-            <div className="mb-3 relative max-w-sm mx-auto bg-white p-2 rounded-lg shadow-md">
+            <div className="mb-3 relative max-w-sm mx-auto bg-white dark:bg-gray-700 p-2 rounded-lg shadow-md">
               <button
                 onClick={cancelImage}
-                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 z-10"
+                className="absolute top-1 right-1 bg-red-500 dark:bg-red-600 text-white rounded-full min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-red-600 dark:hover:bg-red-700 active:bg-red-700 dark:active:bg-red-800 z-10 touch-manipulation"
+                aria-label="Annuler l'image"
               >
                 ✕
               </button>
@@ -668,9 +693,9 @@ export default function ChatRoomPage() {
                 src={imagePreview}
                 alt="Preview"
                 className="rounded-lg max-w-full h-auto"
-                style={{ maxHeight: '200px', objectFit: 'contain' }}
+                style={{ maxHeight: '150px', objectFit: 'contain' }}
               />
-              <p className="text-xs text-gray-500 text-center mt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2 truncate">
                 {selectedImage?.name}
               </p>
             </div>
@@ -690,8 +715,9 @@ export default function ChatRoomPage() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="p-2 bg-white hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
+              className="p-2 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 active:bg-gray-200 dark:active:bg-gray-500 rounded-full transition-colors disabled:opacity-50 min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0 touch-manipulation"
               title="Ajouter une photo"
+              aria-label="Ajouter une photo"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -699,7 +725,7 @@ export default function ChatRoomPage() {
                 viewBox="0 0 24 24"
                 strokeWidth={1.5}
                 stroke="currentColor"
-                className="w-6 h-6 text-gray-600"
+                className="w-6 h-6 text-gray-600 dark:text-gray-300"
               >
                 <path
                   strokeLinecap="round"
@@ -725,16 +751,18 @@ export default function ChatRoomPage() {
               onBlur={() => handleTyping(false)}
               disabled={uploading}
               placeholder="Message"
-              className="flex-1 px-4 py-3 bg-white border-none rounded-full focus:outline-none text-sm"
+              className="flex-1 px-3 sm:px-4 py-3 bg-white dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 border-none rounded-full focus:outline-none text-base sm:text-sm min-h-[44px]"
+              style={{ fontSize: '16px' }}
             />
             <button
               onClick={sendMessage}
-              className="w-12 h-12 bg-teal-600 hover:bg-teal-700 text-white rounded-full flex items-center justify-center shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="min-w-[48px] min-h-[48px] sm:w-12 sm:h-12 bg-teal-600 dark:bg-teal-700 hover:bg-teal-700 dark:hover:bg-teal-800 active:bg-teal-800 dark:active:bg-teal-900 text-white rounded-full flex items-center justify-center shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 touch-manipulation"
               disabled={uploading || (!newMessage.trim() && !selectedImage)}
+              aria-label="Envoyer le message"
             >
               {uploading ? (
                 <svg
-                  className="animate-spin h-5 w-5 text-white"
+                  className="animate-spin h-5 w-5 sm:h-5 sm:w-5 text-white"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -758,7 +786,7 @@ export default function ChatRoomPage() {
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
                   fill="currentColor"
-                  className="w-5 h-5"
+                  className="w-6 h-6 sm:w-5 sm:h-5"
                 >
                   <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
                 </svg>
@@ -769,25 +797,27 @@ export default function ChatRoomPage() {
 
         {/* Share Code Modal */}
         {showCodeModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white p-6 rounded-lg max-w-md w-full">
-              <h2 className="text-xl font-bold mb-4">Partager cette conversation</h2>
-              <p className="text-gray-600 mb-3">
+          <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg max-w-md w-full">
+              <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 dark:text-gray-100">Partager cette conversation</h2>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-3">
                 Partagez ce code avec votre contact pour qu'il puisse rejoindre la conversation :
               </p>
-              <div className="bg-gray-100 p-4 rounded-lg mb-4 text-center">
-                <p className="text-3xl font-bold tracking-wider text-green-600">{roomId}</p>
+              <div className="bg-gray-100 dark:bg-gray-700 p-3 sm:p-4 rounded-lg mb-4 text-center">
+                <p className="text-2xl sm:text-3xl font-bold tracking-wider text-green-600 dark:text-green-400">{roomId}</p>
               </div>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowCodeModal(false)}
-                  className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800"
+                  className="flex-1 px-4 py-3 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 active:bg-gray-100 dark:active:bg-gray-700 rounded-lg min-h-[44px] touch-manipulation"
+                  aria-label="Fermer"
                 >
                   Fermer
                 </button>
                 <button
                   onClick={copyCode}
-                  className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                  className="flex-1 px-4 py-3 bg-green-500 dark:bg-green-600 text-white rounded-lg hover:bg-green-600 dark:hover:bg-green-700 active:bg-green-700 dark:active:bg-green-800 min-h-[44px] touch-manipulation"
+                  aria-label="Copier le code"
                 >
                   Copier le code
                 </button>
