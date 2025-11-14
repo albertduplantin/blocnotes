@@ -22,9 +22,12 @@ export default function ChatRoomPage() {
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
   const messagesEndRef = useRef(null);
-  const pollingIntervalRef = useRef(null);
+  const eventSourceRef = useRef(null);
   const fileInputRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   // Double-clic pour sortir du chat vers /notes
   useDoubleClickTrigger(() => router.push('/notes'));
@@ -39,13 +42,21 @@ export default function ChatRoomPage() {
     loadConversationInfo();
     loadMessages();
 
-    // Démarrer le polling pour les nouveaux messages
-    startPolling();
+    // Connect to Server-Sent Events for real-time updates
+    connectToSSE();
+
+    // Poll for typing indicators
+    const typingInterval = setInterval(checkTypingStatus, 1000);
 
     return () => {
-      // Nettoyer le polling à la sortie
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
+      // Clean up SSE connection
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      clearInterval(typingInterval);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
     };
   }, [roomId]);
@@ -248,45 +259,97 @@ export default function ChatRoomPage() {
     }
   };
 
-  const startPolling = () => {
-    // Polling toutes les 3 secondes
-    pollingIntervalRef.current = setInterval(() => {
-      fetchNewMessages();
-    }, 3000);
+  const connectToSSE = () => {
+    try {
+      // Close existing connection if any
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
 
-    // Premier fetch immédiat
-    fetchNewMessages();
+      const since = new Date(lastFetchTimestamp).toISOString();
+      const eventSource = new EventSource(`/api/chat/${roomId}/events?since=${since}`);
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          if (data.type === 'connected') {
+            console.log('[SSE] Connected to room:', data.roomId);
+          } else if (data.type === 'messages' && data.messages) {
+            // New messages received
+            setMessages(prev => {
+              const existingIds = new Set(prev.map(m => m.id));
+              const newMessages = data.messages.filter(m => !existingIds.has(m.id));
+
+              if (newMessages.length > 0) {
+                // Save to IndexedDB
+                saveMessagesToIndexedDB(newMessages);
+                setLastFetchTimestamp(Date.now());
+
+                return [...prev, ...newMessages].sort((a, b) =>
+                  new Date(a.timestamp) - new Date(b.timestamp)
+                );
+              }
+              return prev;
+            });
+          } else if (data.type === 'heartbeat') {
+            // Keep connection alive
+            console.log('[SSE] Heartbeat');
+          }
+        } catch (error) {
+          console.error('[SSE] Error parsing message:', error);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('[SSE] Connection error:', error);
+        eventSource.close();
+
+        // Reconnect after 5 seconds
+        setTimeout(() => {
+          console.log('[SSE] Reconnecting...');
+          connectToSSE();
+        }, 5000);
+      };
+
+      eventSourceRef.current = eventSource;
+    } catch (error) {
+      console.error('[SSE] Failed to connect:', error);
+    }
   };
 
-  const fetchNewMessages = async () => {
+  const checkTypingStatus = async () => {
     try {
-      const response = await fetch(`/api/chat/${roomId}?since=${lastFetchTimestamp}`);
-      if (!response.ok) return;
-
-      const data = await response.json();
-
-      if (data.messages && data.messages.length > 0) {
-        // Merger les nouveaux messages avec les existants
-        setMessages(prev => {
-          const existingIds = new Set(prev.map(m => m.id));
-          const newMessages = data.messages.filter(m => !existingIds.has(m.id));
-
-          if (newMessages.length > 0) {
-            // Sauvegarder dans IndexedDB
-            saveMessagesToIndexedDB(newMessages);
-
-            // Mettre à jour le timestamp
-            setLastFetchTimestamp(Date.now());
-
-            return [...prev, ...newMessages].sort((a, b) =>
-              new Date(a.timestamp) - new Date(b.timestamp)
-            );
-          }
-          return prev;
-        });
+      const userKey = isAdmin ? 'admin' : 'user';
+      const response = await fetch(`/api/chat/${roomId}/typing?userId=${userKey}`);
+      if (response.ok) {
+        const data = await response.json();
+        setOtherUserTyping(data.isTyping);
       }
     } catch (error) {
-      console.error('Erreur lors du polling:', error);
+      // Silently fail
+    }
+  };
+
+  const handleTyping = (typing) => {
+    // Notify server of typing status
+    const userKey = isAdmin ? 'admin' : 'user';
+    fetch(`/api/chat/${roomId}/typing`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: userKey, isTyping: typing, isAdmin })
+    }).catch(() => {});
+
+    if (typing) {
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // Auto-stop typing after 3 seconds
+      typingTimeoutRef.current = setTimeout(() => {
+        handleTyping(false);
+      }, 3000);
     }
   };
 
@@ -460,7 +523,13 @@ export default function ChatRoomPage() {
             )}
             <div>
               <h1 className="text-lg font-semibold">{conversationName}</h1>
-              <p className="text-xs opacity-75">Code: {roomId}</p>
+              <p className="text-xs opacity-75">
+                {otherUserTyping ? (
+                  <span className="text-green-200">en train d'écrire...</span>
+                ) : (
+                  `Code: ${roomId}`
+                )}
+              </p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -505,11 +574,12 @@ export default function ChatRoomPage() {
               <p className="text-xs mt-1 text-gray-500">Partagez ce code pour commencer</p>
             </div>
           ) : (
-            messages.map(message => {
-              // Déterminer si c'est MON message ou celui de l'autre
-              // Si je suis admin et message envoyé par admin → mon message
-              // Si je suis utilisateur et message envoyé par utilisateur → mon message
-              const isMyMessage = (isAdmin && message.sentByAdmin) || (!isAdmin && !message.sentByAdmin);
+            <>
+              {messages.map(message => {
+                // Déterminer si c'est MON message ou celui de l'autre
+                // Si je suis admin et message envoyé par admin → mon message
+                // Si je suis utilisateur et message envoyé par utilisateur → mon message
+                const isMyMessage = (isAdmin && message.sentByAdmin) || (!isAdmin && !message.sentByAdmin);
 
               return (
                 <div
@@ -556,7 +626,21 @@ export default function ChatRoomPage() {
                   </div>
                 </div>
               );
-            })
+              })}
+
+              {/* Typing Indicator */}
+              {otherUserTyping && (
+                <div className="flex justify-start mb-2">
+                  <div className="bg-white px-4 py-2 rounded-lg shadow-sm">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
           <div ref={messagesEndRef} />
         </div>
@@ -620,8 +704,17 @@ export default function ChatRoomPage() {
             <input
               type="text"
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !uploading && sendMessage()}
+              onChange={(e) => {
+                setNewMessage(e.target.value);
+                handleTyping(e.target.value.length > 0);
+              }}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && !uploading) {
+                  handleTyping(false);
+                  sendMessage();
+                }
+              }}
+              onBlur={() => handleTyping(false)}
               disabled={uploading}
               placeholder="Message"
               className="flex-1 px-4 py-3 bg-white border-none rounded-full focus:outline-none text-sm"
