@@ -270,6 +270,58 @@ export default function ChatRoomPage() {
     }
   };
 
+  const deleteMessage = async (messageId) => {
+    try {
+      const response = await fetch(`/api/chat/${roomId}/messages/${messageId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isAdmin }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        showToast(error.error || 'Erreur lors de la suppression', 'error');
+        return;
+      }
+
+      // Remove message from local state
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+      showToast('Message supprimé', 'success');
+    } catch (error) {
+      console.error('Erreur lors de la suppression du message:', error);
+      showToast('Erreur lors de la suppression', 'error');
+    }
+  };
+
+  const clearAllMessages = async () => {
+    if (!isAdmin) return;
+
+    if (!confirm('Êtes-vous sûr de vouloir supprimer TOUS les messages de cette conversation ?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/chat/${roomId}/messages/clear`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isAdmin: true }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        showToast(error.error || 'Erreur lors de la suppression', 'error');
+        return;
+      }
+
+      const data = await response.json();
+      setMessages([]);
+      showToast(`${data.deletedCount} message(s) supprimé(s)`, 'success');
+    } catch (error) {
+      console.error('Erreur lors de la suppression des messages:', error);
+      showToast('Erreur lors de la suppression', 'error');
+    }
+  };
+
   const connectToSSE = () => {
     try {
       // Close existing connection if any
@@ -573,11 +625,12 @@ export default function ChatRoomPage() {
             {isAdmin && (
               <>
                 <button
-                  onClick={clearMessages}
+                  onClick={clearAllMessages}
                   className="px-2 sm:px-3 py-1 bg-red-500 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-700 active:bg-red-700 dark:active:bg-red-800 text-white rounded text-xs sm:text-sm min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation"
-                  aria-label="Effacer les messages"
+                  aria-label="Supprimer tous les messages"
+                  title="Supprimer tous les messages de cette conversation"
                 >
-                  <span className="hidden sm:inline">Effacer</span>
+                  <span className="hidden sm:inline">Tout effacer</span>
                   <span className="sm:hidden">🗑️</span>
                 </button>
                 <button
@@ -620,7 +673,7 @@ export default function ChatRoomPage() {
               return (
                 <div
                   key={message.id}
-                  className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
+                  className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} group`}
                 >
                   <div
                     className={`max-w-[85%] sm:max-w-xs md:max-w-md px-3 py-2 shadow-sm ${
@@ -651,15 +704,32 @@ export default function ChatRoomPage() {
                         {message.content}
                       </p>
                     )}
-                    <div className={`flex items-center justify-end gap-1 mt-1`}>
-                      <span className="text-[10px] sm:text-xs opacity-70" style={{ color: colorScheme.text }}>
-                        {new Date(message.timestamp).toLocaleTimeString('fr-FR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                      {isMyMessage && (
-                        <span className="text-[10px] sm:text-xs opacity-70" style={{ color: colorScheme.text }}>✓✓</span>
+                    <div className={`flex items-center justify-between gap-2 mt-1`}>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] sm:text-xs opacity-70" style={{ color: colorScheme.text }}>
+                          {new Date(message.timestamp).toLocaleTimeString('fr-FR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                        {isMyMessage && (
+                          <span className="text-[10px] sm:text-xs opacity-70" style={{ color: colorScheme.text }}>✓✓</span>
+                        )}
+                      </div>
+                      {/* Delete button - show if user owns the message or if admin */}
+                      {(isMyMessage || isAdmin) && (
+                        <button
+                          onClick={() => {
+                            if (confirm('Supprimer ce message ?')) {
+                              deleteMessage(message.id);
+                            }
+                          }}
+                          className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-xs p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-opacity"
+                          style={{ color: colorScheme.text }}
+                          title="Supprimer"
+                        >
+                          🗑️
+                        </button>
                       )}
                     </div>
                   </div>

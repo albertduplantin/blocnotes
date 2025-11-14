@@ -37,7 +37,8 @@
       "Bash(vercel ls:*)",
       "Bash(vercel inspect:*)",
       "Bash(printf:*)",
-      "Bash(start https://vercel.com/albertduplantins-projects/blocnotes/stores)"
+      "Bash(start https://vercel.com/albertduplantins-projects/blocnotes/stores)",
+      "Bash(start https://thezcotpovrymiq2.public.blob.vercel-storage.com/chat-1763138048308-nthb7-RULWmWLifePP1R1oYPxjfQZTQouTAL.jpg)"
     ],
     "deny": [],
     "ask": []
