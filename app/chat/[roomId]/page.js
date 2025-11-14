@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { PanicWrapper } from '../../../components/PanicWrapper';
 import { useDoubleClickTrigger } from '../../../hooks/useDoubleClickTrigger';
+import { getUserColorScheme } from '../../../utils/colorUtils';
 
 export default function ChatRoomPage() {
   const router = useRouter();
@@ -581,6 +582,10 @@ export default function ChatRoomPage() {
                 // Si je suis utilisateur et message envoyé par utilisateur → mon message
                 const isMyMessage = (isAdmin && message.sentByAdmin) || (!isAdmin && !message.sentByAdmin);
 
+                // Generate unique user identifier for color
+                const userIdentifier = `${roomId}_${message.sentByAdmin ? 'admin' : 'user'}`;
+                const colorScheme = getUserColorScheme(userIdentifier, isMyMessage);
+
               return (
                 <div
                   key={message.id}
@@ -589,11 +594,12 @@ export default function ChatRoomPage() {
                   <div
                     className={`max-w-xs md:max-w-md px-3 py-2 shadow-sm ${
                       isMyMessage
-                        ? 'bg-dcf8c6 rounded-tl-lg rounded-tr-lg rounded-bl-lg'
-                        : 'bg-white rounded-tl-lg rounded-tr-lg rounded-br-lg'
+                        ? 'rounded-tl-lg rounded-tr-lg rounded-bl-lg'
+                        : 'rounded-tl-lg rounded-tr-lg rounded-br-lg'
                     }`}
                     style={{
-                      backgroundColor: isMyMessage ? '#dcf8c6' : '#ffffff'
+                      backgroundColor: colorScheme.background,
+                      color: colorScheme.text
                     }}
                   >
                     {/* Image si présente */}
@@ -610,17 +616,19 @@ export default function ChatRoomPage() {
                     )}
                     {/* Texte du message */}
                     {message.content && (
-                      <p className="text-sm text-gray-800 break-words">{message.content}</p>
+                      <p className="text-sm break-words" style={{ color: colorScheme.text }}>
+                        {message.content}
+                      </p>
                     )}
                     <div className={`flex items-center justify-end gap-1 mt-1`}>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs opacity-70" style={{ color: colorScheme.text }}>
                         {new Date(message.timestamp).toLocaleTimeString('fr-FR', {
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
                       </span>
                       {isMyMessage && (
-                        <span className="text-xs text-gray-500">✓✓</span>
+                        <span className="text-xs opacity-70" style={{ color: colorScheme.text }}>✓✓</span>
                       )}
                     </div>
                   </div>
