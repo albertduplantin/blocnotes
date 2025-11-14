@@ -181,20 +181,27 @@ export default function ChatRoomPage() {
       const formData = new FormData();
       formData.append('file', selectedImage);
 
+      console.log('[Upload] Envoi de l\'image:', selectedImage.name, selectedImage.type, selectedImage.size);
+
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       });
 
+      console.log('[Upload] Response status:', response.status);
+
       if (!response.ok) {
-        throw new Error('Erreur lors de l\'upload');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[Upload] Error response:', errorData);
+        throw new Error(errorData.error || 'Erreur lors de l\'upload');
       }
 
       const data = await response.json();
+      console.log('[Upload] Success:', data);
       return data.url;
     } catch (error) {
-      console.error('Erreur lors de l\'upload:', error);
-      showToast('Erreur lors de l\'envoi de l\'image', 'error');
+      console.error('[Upload] Erreur lors de l\'upload:', error);
+      showToast(`Erreur: ${error.message}`, 'error');
       return null;
     } finally {
       setUploading(false);

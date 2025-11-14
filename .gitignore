@@ -40,3 +40,4 @@ drizzle/
 .idea/
 *.swp
 *.swo
+.env*.local

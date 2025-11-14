@@ -107,8 +107,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[API POST /api/upload] Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
     return NextResponse.json(
-      { error: 'Erreur lors de l\'upload de l\'image' },
+      { error: `Erreur lors de l'upload de l'image: ${errorMessage}` },
       { status: 500 }
     );
   }
