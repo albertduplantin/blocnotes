@@ -42,6 +42,15 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // IMPORTANT: Ne JAMAIS mettre en cache les pages de chat ou les API de chat
+  if (url.pathname.startsWith('/chat') ||
+      url.pathname.startsWith('/api/chat') ||
+      url.pathname.startsWith('/api/messages')) {
+    // Network Only - pas de cache pour les données sensibles
+    event.respondWith(fetch(request));
+    return;
+  }
+
   // Stratégie Cache First pour les ressources statiques
   if (STATIC_ASSETS.includes(url.pathname)) {
     event.respondWith(

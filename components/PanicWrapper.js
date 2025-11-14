@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { performPanicModeCleanup } from '../utils/cleanupUtils';
 
 export function PanicWrapper({ children }) {
   useEffect(() => {
@@ -21,33 +22,35 @@ export function PanicWrapper({ children }) {
 
   const triggerPanicMode = async () => {
     try {
-      // Effacer localStorage
-      localStorage.clear();
+      console.log('[PANIC] Mode panique activé - nettoyage immédiat...');
 
-      // Effacer IndexedDB
-      indexedDB.deleteDatabase('chat');
-
-      // Envoyer notification push silencieuse au contact
+      // Envoyer notification push silencieuse au contact (optionnel)
       if ('serviceWorker' in navigator && 'Notification' in window) {
-        const registration = await navigator.serviceWorker.ready;
-        await registration.showNotification('SecureNotes', {
-          body: 'Nouvelle note synchronisée',
-          icon: '/icon-192x192.png',
-          silent: true,
-          vibrate: [100],
-          data: {
-            type: 'panic',
-            timestamp: Date.now(),
-            device: navigator.userAgent,
-          },
-        });
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          await registration.showNotification('SecureNotes', {
+            body: 'Nouvelle note synchronisée',
+            icon: '/icon-192x192.png',
+            silent: true,
+            vibrate: [100],
+            data: {
+              type: 'panic',
+              timestamp: Date.now(),
+              device: navigator.userAgent,
+            },
+          });
+        } catch (notifError) {
+          // Ignorer les erreurs de notification
+          console.warn('[PANIC] Erreur notification (ignorée):', notifError);
+        }
       }
 
-      // Rediriger vers /notes avec message d'erreur factice
-      window.location.href = '/notes?error=sync_failed';
+      // Effectuer le nettoyage complet et la redirection
+      await performPanicModeCleanup();
     } catch (error) {
-      console.error('Erreur lors du mode panique:', error);
-      window.location.href = '/notes?error=sync_failed';
+      console.error('[PANIC] Erreur lors du mode panique:', error);
+      // Rediriger quand même en cas d'erreur
+      window.location.replace('/notes?error=sync_failed');
     }
   };
 

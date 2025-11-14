@@ -14,6 +14,13 @@ export async function DELETE(
     const { roomId, messageId } = context.params;
     const { isAdmin } = await request.json();
 
+    console.log('[DELETE Message] Request:', {
+      roomId,
+      messageId,
+      isAdmin,
+      isAdminType: typeof isAdmin
+    });
+
     // Get the message to check ownership
     const messageResult = await sql`
       SELECT id, sent_by_admin as "sentByAdmin"
@@ -30,10 +37,22 @@ export async function DELETE(
 
     const message = messageResult.rows[0];
 
+    console.log('[DELETE Message] Permission check:', {
+      isAdmin,
+      messageSentByAdmin: message.sentByAdmin,
+      sentByAdminType: typeof message.sentByAdmin
+    });
+
     // Check permissions: admin can delete any message, users can only delete their own
     const canDelete = isAdmin || message.sentByAdmin === isAdmin;
 
+    console.log('[DELETE Message] Can delete?', {
+      canDelete,
+      reason: isAdmin ? 'admin' : message.sentByAdmin === isAdmin ? 'owner' : 'denied'
+    });
+
     if (!canDelete) {
+      console.log('[DELETE Message] Permission denied');
       return NextResponse.json(
         { error: 'Non autorisé à supprimer ce message' },
         { status: 403 }

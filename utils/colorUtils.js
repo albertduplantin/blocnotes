@@ -89,11 +89,29 @@ export function getTextColor(backgroundColor) {
 }
 
 /**
- * Get a consistent color scheme for a user
+ * Get a consistent color scheme based on role only
+ * No more "my message" vs "other message" - just role-based colors
  */
-export function getUserColorScheme(userId, isCurrentUser = false) {
+export function getUserColorScheme(userId, isCurrentUser = false, messageRole = null) {
+  // If a role is specified (admin or user), use fixed colors ONLY based on role
+  if (messageRole === 'admin') {
+    // Admin messages are ALWAYS light blue
+    return {
+      background: '#c5e1f5',
+      text: '#1a1a1a',
+      name: '#065e54'
+    };
+  } else if (messageRole === 'user') {
+    // User messages are ALWAYS light peach
+    return {
+      background: '#f5e5d5',
+      text: '#1a1a1a',
+      name: '#8b6e4e'
+    };
+  }
+
+  // Fallback to old behavior for compatibility
   if (isCurrentUser) {
-    // Current user gets a distinct green color (WhatsApp style)
     return {
       background: '#dcf8c6',
       text: '#1a1a1a',

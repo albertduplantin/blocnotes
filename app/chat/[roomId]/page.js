@@ -8,6 +8,7 @@ import { getUserColorScheme } from '../../../utils/colorUtils';
 import ThemeToggle from '../../../components/ThemeToggle';
 import { showMessageNotification } from '../../../utils/notifications';
 import NotificationButton from '../../../components/NotificationButton';
+import { performPartialCleanup } from '../../../utils/cleanupUtils';
 
 export default function ChatRoomPage() {
   const router = useRouter();
@@ -33,14 +34,34 @@ export default function ChatRoomPage() {
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
-  // Double-clic pour sortir du chat vers /notes
-  useDoubleClickTrigger(() => router.push('/notes'));
+  // Double-clic pour sortir du chat vers /notes (mode sortie sécurisée)
+  useDoubleClickTrigger(async () => {
+    console.log('[Exit] Sortie sécurisée du chat...');
+
+    // Effacer immédiatement l'affichage pour la sécurité
+    setMessages([]);
+
+    // Fermer la connexion SSE
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+
+    // Effectuer le nettoyage partiel complet (efface toutes les traces de cette conversation)
+    await performPartialCleanup(roomId, '/notes');
+  });
 
   useEffect(() => {
+    // SECURITY: Marquer que nous sommes dans le chat
+    sessionStorage.setItem('inChat', 'true');
+    sessionStorage.setItem('currentRoomId', roomId);
+
     // Vérifier le statut admin et token
     const adminStatus = localStorage.getItem('isAdmin') === 'true';
     const storedToken = localStorage.getItem(`adminToken_${roomId}`);
-    setIsAdmin(adminStatus && storedToken);
+    const isAdminUser = adminStatus && !!storedToken; // Convert to boolean
+    console.log('[Chat] Admin check:', { adminStatus, hasToken: !!storedToken, isAdminUser });
+    setIsAdmin(isAdminUser);
     setAdminToken(storedToken);
 
     loadConversationInfo();
@@ -52,7 +73,30 @@ export default function ChatRoomPage() {
     // Poll for typing indicators
     const typingInterval = setInterval(checkTypingStatus, 1000);
 
+    // SECURITY: Intercepter le retour arrière du navigateur
+    const handlePopState = async (event) => {
+      console.log('[Exit] Retour arrière détecté - nettoyage...');
+
+      // Effacer les messages immédiatement
+      setMessages([]);
+
+      // Fermer la connexion SSE
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+
+      // Effectuer le nettoyage partiel
+      await performPartialCleanup(roomId, '/notes');
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
     return () => {
+      // Clean up
+      sessionStorage.removeItem('inChat');
+      sessionStorage.removeItem('currentRoomId');
+
       // Clean up SSE connection
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -62,6 +106,8 @@ export default function ChatRoomPage() {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
+
+      window.removeEventListener('popstate', handlePopState);
     };
   }, [roomId]);
 
@@ -272,6 +318,7 @@ export default function ChatRoomPage() {
 
   const deleteMessage = async (messageId) => {
     try {
+      console.log('[Delete] Deleting message:', { messageId, isAdmin, type: typeof isAdmin });
       const response = await fetch(`/api/chat/${roomId}/messages/${messageId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -600,7 +647,14 @@ export default function ChatRoomPage() {
               </button>
             )}
             <div className="min-w-0 flex-1">
-              <h1 className="text-base sm:text-lg font-semibold truncate">{conversationName}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-lg font-semibold truncate">{conversationName}</h1>
+                {isAdmin && (
+                  <span className="bg-yellow-400 dark:bg-yellow-500 text-gray-900 dark:text-gray-900 text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+                    ADMIN
+                  </span>
+                )}
+              </div>
               <p className="text-xs opacity-75 truncate">
                 {otherUserTyping ? (
                   <span className="text-green-200 dark:text-green-300">en train d'écrire...</span>
@@ -661,26 +715,30 @@ export default function ChatRoomPage() {
           ) : (
             <>
               {messages.map(message => {
-                // Déterminer si c'est MON message ou celui de l'autre
-                // Si je suis admin et message envoyé par admin → mon message
-                // Si je suis utilisateur et message envoyé par utilisateur → mon message
-                const isMyMessage = (isAdmin && message.sentByAdmin) || (!isAdmin && !message.sentByAdmin);
+                // Determine message role for color scheme - NO MORE isMyMessage
+                const messageRole = message.sentByAdmin ? 'admin' : 'user';
+                const colorScheme = getUserColorScheme(null, false, messageRole);
 
-                // Generate unique user identifier for color
-                const userIdentifier = `${roomId}_${message.sentByAdmin ? 'admin' : 'user'}`;
-                const colorScheme = getUserColorScheme(userIdentifier, isMyMessage);
+                // Always align messages to the left for consistency
+                const isAdminMessage = message.sentByAdmin;
+
+                // Debug logging (first message only to avoid spam)
+                if (message === messages[0]) {
+                  console.log('[Message Colors] Debug:', {
+                    messageId: message.id,
+                    sentByAdmin: message.sentByAdmin,
+                    messageRole,
+                    colorScheme
+                  });
+                }
 
               return (
                 <div
                   key={message.id}
-                  className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} group`}
+                  className={`flex justify-start group`}
                 >
                   <div
-                    className={`max-w-[85%] sm:max-w-xs md:max-w-md px-3 py-2 shadow-sm ${
-                      isMyMessage
-                        ? 'rounded-tl-lg rounded-tr-lg rounded-bl-lg'
-                        : 'rounded-tl-lg rounded-tr-lg rounded-br-lg'
-                    }`}
+                    className={`max-w-[85%] sm:max-w-xs md:max-w-md px-3 py-2 shadow-sm rounded-tl-lg rounded-tr-lg rounded-br-lg`}
                     style={{
                       backgroundColor: colorScheme.background,
                       color: colorScheme.text
@@ -705,19 +763,23 @@ export default function ChatRoomPage() {
                       </p>
                     )}
                     <div className={`flex items-center justify-between gap-2 mt-1`}>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2">
+                        {/* Show role badge */}
+                        <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{
+                          backgroundColor: isAdminMessage ? '#3b82f6' : '#f59e0b',
+                          color: 'white'
+                        }}>
+                          {isAdminMessage ? 'ADMIN' : 'USER'}
+                        </span>
                         <span className="text-[10px] sm:text-xs opacity-70" style={{ color: colorScheme.text }}>
                           {new Date(message.timestamp).toLocaleTimeString('fr-FR', {
                             hour: '2-digit',
                             minute: '2-digit',
                           })}
                         </span>
-                        {isMyMessage && (
-                          <span className="text-[10px] sm:text-xs opacity-70" style={{ color: colorScheme.text }}>✓✓</span>
-                        )}
                       </div>
-                      {/* Delete button - show if user owns the message or if admin */}
-                      {(isMyMessage || isAdmin) && (
+                      {/* Delete button - admin can delete any message, users can only delete user messages */}
+                      {(isAdmin || !isAdminMessage) && (
                         <button
                           onClick={() => {
                             if (confirm('Supprimer ce message ?')) {

@@ -50,6 +50,15 @@ export async function GET(
     const result = await query;
     const messages = result.rows;
 
+    // Debug: log first message to check sentByAdmin field
+    if (messages.length > 0) {
+      console.log('[API GET] First message:', {
+        id: messages[0].id,
+        sentByAdmin: messages[0].sentByAdmin,
+        sentByAdminType: typeof messages[0].sentByAdmin
+      });
+    }
+
     return NextResponse.json({
       messages,
       count: messages.length
