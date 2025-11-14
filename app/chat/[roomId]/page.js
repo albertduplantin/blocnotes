@@ -16,9 +16,12 @@ export default function ChatRoomPage() {
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [lastFetchTimestamp, setLastFetchTimestamp] = useState(Date.now());
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminToken, setAdminToken] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState(null);
   const messagesEndRef = useRef(null);
   const pollingIntervalRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -27,9 +30,11 @@ export default function ChatRoomPage() {
   useDoubleClickTrigger(() => router.push('/notes'));
 
   useEffect(() => {
-    // Vérifier le statut admin
+    // Vérifier le statut admin et token
     const adminStatus = localStorage.getItem('isAdmin') === 'true';
-    setIsAdmin(adminStatus);
+    const storedToken = localStorage.getItem(`adminToken_${roomId}`);
+    setIsAdmin(adminStatus && storedToken);
+    setAdminToken(storedToken);
 
     loadConversationInfo();
     loadMessages();
@@ -44,6 +49,11 @@ export default function ChatRoomPage() {
       }
     };
   }, [roomId]);
+
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   useEffect(() => {
     scrollToBottom();
@@ -61,20 +71,56 @@ export default function ChatRoomPage() {
 
   const loadMessages = async () => {
     try {
-      const db = await openDB('chat', 2);
-      const transaction = db.transaction(['messages'], 'readonly');
-      const store = transaction.objectStore('messages');
-      const index = store.index('roomId');
-      const request = index.getAll(roomId);
+      setLoading(true);
 
-      request.onsuccess = () => {
-        const roomMessages = request.result.sort((a, b) =>
-          new Date(a.timestamp) - new Date(b.timestamp)
-        );
-        setMessages(roomMessages);
-      };
+      // Charger depuis le serveur (source de vérité)
+      const response = await fetch(`/api/chat/${roomId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data.messages || []);
+
+        // Sauvegarder dans IndexedDB pour backup
+        const db = await openDB('chat', 2);
+        const transaction = db.transaction(['messages'], 'readwrite');
+        const store = transaction.objectStore('messages');
+
+        for (const message of data.messages || []) {
+          try {
+            await new Promise((resolve, reject) => {
+              const request = store.put(message);
+              request.onsuccess = () => resolve();
+              request.onerror = () => reject(request.error);
+            });
+          } catch (e) {
+            // Ignorer les erreurs de duplication
+          }
+        }
+      } else {
+        throw new Error('Erreur de chargement');
+      }
     } catch (error) {
       console.error('Erreur lors du chargement des messages:', error);
+      showToast('Erreur de chargement des messages', 'error');
+
+      // Fallback sur IndexedDB si serveur inaccessible
+      try {
+        const db = await openDB('chat', 2);
+        const transaction = db.transaction(['messages'], 'readonly');
+        const store = transaction.objectStore('messages');
+        const index = store.index('roomId');
+        const request = index.getAll(roomId);
+
+        request.onsuccess = () => {
+          const roomMessages = request.result.sort((a, b) =>
+            new Date(a.timestamp) - new Date(b.timestamp)
+          );
+          setMessages(roomMessages);
+        };
+      } catch (e) {
+        console.error('Erreur IndexedDB:', e);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,13 +130,13 @@ export default function ChatRoomPage() {
 
     // Vérifier que c'est une image
     if (!file.type.startsWith('image/')) {
-      alert('Veuillez sélectionner une image');
+      showToast('Veuillez sélectionner une image', 'error');
       return;
     }
 
     // Vérifier la taille (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('L\'image ne doit pas dépasser 5MB');
+      showToast('L\'image ne doit pas dépasser 5MB', 'error');
       return;
     }
 
@@ -133,7 +179,7 @@ export default function ChatRoomPage() {
       return data.url;
     } catch (error) {
       console.error('Erreur lors de l\'upload:', error);
-      alert('Erreur lors de l\'envoi de l\'image');
+      showToast('Erreur lors de l\'envoi de l\'image', 'error');
       return null;
     } finally {
       setUploading(false);
@@ -302,7 +348,7 @@ export default function ChatRoomPage() {
 
   const copyCode = () => {
     navigator.clipboard.writeText(roomId);
-    alert('Code copié ! Partagez-le avec votre contact.');
+    showToast('Code copié !', 'success');
   };
 
   const clearMessages = async () => {
@@ -310,14 +356,23 @@ export default function ChatRoomPage() {
       return;
     }
 
+    if (!adminToken) {
+      showToast('Vous devez être admin pour supprimer les messages', 'error');
+      return;
+    }
+
     try {
       // Supprimer les messages côté serveur pour TOUS les utilisateurs
       const response = await fetch(`/api/chat/${roomId}`, {
         method: 'DELETE',
+        headers: {
+          'X-Admin-Token': adminToken
+        }
       });
 
       if (!response.ok) {
-        throw new Error('Erreur lors de la suppression côté serveur');
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur lors de la suppression');
       }
 
       // Supprimer les messages localement dans IndexedDB
@@ -341,16 +396,20 @@ export default function ChatRoomPage() {
       // Mettre à jour le dernier message dans la liste
       updateLastMessage(null);
 
-      alert('Messages supprimés pour tous les utilisateurs');
+      showToast('Messages supprimés pour tous', 'success');
     } catch (error) {
       console.error('Erreur lors de la suppression des messages:', error);
-      alert('Erreur lors de la suppression des messages');
+      showToast(error.message || 'Erreur lors de la suppression', 'error');
     }
   };
 
   const handleLogout = () => {
     if (confirm('Se déconnecter de la session admin ?')) {
       localStorage.removeItem('isAdmin');
+      localStorage.removeItem(`adminToken_${roomId}`);
+      setIsAdmin(false);
+      setAdminToken(null);
+      showToast('Déconnecté', 'info');
       router.push('/');
     }
   };
@@ -358,6 +417,35 @@ export default function ChatRoomPage() {
   return (
     <PanicWrapper>
       <div className="min-h-screen bg-gray-200 flex flex-col">
+        {/* Toast Notification */}
+        {toast && (
+          <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white animate-slide-in ${
+            toast.type === 'success' ? 'bg-green-500' :
+            toast.type === 'error' ? 'bg-red-500' :
+            toast.type === 'warning' ? 'bg-yellow-500' :
+            'bg-blue-500'
+          }`}>
+            <div className="flex items-center gap-2">
+              <span className="text-lg">
+                {toast.type === 'success' ? '✓' :
+                 toast.type === 'error' ? '✕' :
+                 toast.type === 'warning' ? '⚠' : 'ℹ'}
+              </span>
+              <span>{toast.message}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Loading Overlay */}
+        {loading && (
+          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-40">
+            <div className="bg-white rounded-lg p-6 flex items-center gap-3">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+              <span className="text-gray-700">Chargement...</span>
+            </div>
+          </div>
+        )}
+
         {/* Header - Style WhatsApp */}
         <div className="bg-teal-600 text-white p-3 flex items-center justify-between shadow-md">
           <div className="flex items-center gap-3">

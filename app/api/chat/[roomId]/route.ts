@@ -1,30 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { sql } from '@vercel/postgres';
 
 /**
- * Simple in-memory message storage for conversations
- * No database, no authentication - just simple message exchange
+ * Persistent message storage using PostgreSQL
+ * Replaces in-memory storage for reliability
  */
-
-// In-memory storage for messages
-const messagesStore = new Map<string, any[]>();
-
-// Clean old messages (older than 24 hours)
-function cleanOldMessages() {
-  const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-  for (const [roomId, messages] of messagesStore.entries()) {
-    const filteredMessages = messages.filter(msg =>
-      new Date(msg.timestamp).getTime() > oneDayAgo
-    );
-    if (filteredMessages.length === 0) {
-      messagesStore.delete(roomId);
-    } else {
-      messagesStore.set(roomId, filteredMessages);
-    }
-  }
-}
-
-// Clean every 10 minutes
-setInterval(cleanOldMessages, 10 * 60 * 1000);
 
 // GET - Get messages for a room
 export async function GET(
@@ -36,23 +16,50 @@ export async function GET(
     const url = new URL(request.url);
     const since = url.searchParams.get('since');
 
-    let roomMessages = messagesStore.get(roomId) || [];
+    // Ensure room exists (create if not)
+    await sql`
+      INSERT INTO rooms (id, name)
+      VALUES (${roomId}, ${`Conversation ${roomId}`})
+      ON CONFLICT (id) DO NOTHING
+    `;
 
-    // Filter by timestamp if 'since' is provided
+    let query;
     if (since) {
+      // Get messages since timestamp
       const sinceTimestamp = parseInt(since);
-      roomMessages = roomMessages.filter(msg =>
-        new Date(msg.timestamp).getTime() > sinceTimestamp
-      );
+      const sinceDate = new Date(sinceTimestamp);
+
+      query = sql`
+        SELECT id, room_id as "roomId", content, image_url as "imageUrl",
+               sent_by_admin as "sentByAdmin", timestamp
+        FROM messages
+        WHERE room_id = ${roomId} AND timestamp > ${sinceDate.toISOString()}
+        ORDER BY timestamp ASC
+      `;
+    } else {
+      // Get all messages for the room
+      query = sql`
+        SELECT id, room_id as "roomId", content, image_url as "imageUrl",
+               sent_by_admin as "sentByAdmin", timestamp
+        FROM messages
+        WHERE room_id = ${roomId}
+        ORDER BY timestamp ASC
+      `;
     }
 
+    const result = await query;
+    const messages = result.rows;
+
     return NextResponse.json({
-      messages: roomMessages,
-      count: roomMessages.length
+      messages,
+      count: messages.length
     });
   } catch (error) {
-    console.error('Error fetching messages:', error);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    console.error('[API GET /api/chat/[roomId]] Error:', error);
+    return NextResponse.json(
+      { error: 'Erreur lors de la récupération des messages', messages: [], count: 0 },
+      { status: 500 }
+    );
   }
 }
 
@@ -63,15 +70,40 @@ export async function POST(
 ) {
   try {
     const { roomId } = context.params;
-    const { id, content, imageUrl, timestamp, sentByAdmin } = await request.json();
+    const body = await request.json();
+    const { id, content, imageUrl, timestamp, sentByAdmin } = body;
 
     if (!content && !imageUrl) {
-      return NextResponse.json({ error: 'Content or image required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Le message doit contenir du texte ou une image' },
+        { status: 400 }
+      );
     }
 
     // Use client-provided ID or generate one
     const messageId = id || `${roomId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     const messageTimestamp = timestamp || new Date().toISOString();
+
+    // Ensure room exists
+    await sql`
+      INSERT INTO rooms (id, name, updated_at)
+      VALUES (${roomId}, ${`Conversation ${roomId}`}, CURRENT_TIMESTAMP)
+      ON CONFLICT (id) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+    `;
+
+    // Insert message (avoid duplicates with ON CONFLICT)
+    await sql`
+      INSERT INTO messages (id, room_id, content, image_url, sent_by_admin, timestamp)
+      VALUES (
+        ${messageId},
+        ${roomId},
+        ${content || ''},
+        ${imageUrl || null},
+        ${sentByAdmin || false},
+        ${messageTimestamp}
+      )
+      ON CONFLICT (id) DO NOTHING
+    `;
 
     const message = {
       id: messageId,
@@ -82,27 +114,20 @@ export async function POST(
       sentByAdmin: sentByAdmin || false,
     };
 
-    // Get existing messages for this room
-    const roomMessages = messagesStore.get(roomId) || [];
-
-    // Check if message already exists (avoid duplicates)
-    const exists = roomMessages.some(msg => msg.id === messageId);
-    if (!exists) {
-      roomMessages.push(message);
-      messagesStore.set(roomId, roomMessages);
-    }
-
     return NextResponse.json({
       success: true,
       message
     });
   } catch (error) {
-    console.error('Error sending message:', error);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    console.error('[API POST /api/chat/[roomId]] Error:', error);
+    return NextResponse.json(
+      { error: 'Erreur lors de l\'envoi du message' },
+      { status: 500 }
+    );
   }
 }
 
-// DELETE - Delete all messages in a room
+// DELETE - Delete all messages in a room (admin only)
 export async function DELETE(
   request: NextRequest,
   context: { params: { roomId: string } }
@@ -110,11 +135,39 @@ export async function DELETE(
   try {
     const { roomId } = context.params;
 
-    messagesStore.delete(roomId);
+    // Verify admin token from request headers
+    const authHeader = request.headers.get('authorization');
+    const adminToken = request.headers.get('x-admin-token') || authHeader?.replace('Bearer ', '');
+
+    if (!adminToken) {
+      return NextResponse.json(
+        { error: 'Token admin requis' },
+        { status: 401 }
+      );
+    }
+
+    // Verify token against database
+    const tokenResult = await sql`
+      SELECT * FROM admin_tokens
+      WHERE room_id = ${roomId} AND token_hash = ${adminToken}
+    `;
+
+    if (tokenResult.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Token admin invalide' },
+        { status: 403 }
+      );
+    }
+
+    // Delete all messages
+    await sql`DELETE FROM messages WHERE room_id = ${roomId}`;
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting messages:', error);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    console.error('[API DELETE /api/chat/[roomId]] Error:', error);
+    return NextResponse.json(
+      { error: 'Erreur lors de la suppression des messages' },
+      { status: 500 }
+    );
   }
 }
