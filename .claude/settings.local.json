@@ -33,7 +33,9 @@
       "Bash(start https://blocnotes-ricon1csg-albertduplantins-projects.vercel.app)",
       "Bash(npx tsx:*)",
       "Bash(start https://blocnotes-dyty1jd6t-albertduplantins-projects.vercel.app)",
-      "Bash(vercel logs:*)"
+      "Bash(vercel logs:*)",
+      "Bash(vercel ls:*)",
+      "Bash(vercel inspect:*)"
     ],
     "deny": [],
     "ask": []

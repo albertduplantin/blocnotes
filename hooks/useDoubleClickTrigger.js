@@ -8,6 +8,14 @@ export function useDoubleClickTrigger(callback, element = null) {
     const targetElement = element || document;
 
     const handleClick = (event) => {
+      // Ignorer les clics sur les éléments interactifs
+      const target = event.target;
+      const isInteractive = target.closest('button, input, textarea, select, a, [role="button"]');
+
+      if (isInteractive) {
+        return; // Ne pas compter ce clic pour le double-clic
+      }
+
       clickCountRef.current += 1;
 
       if (clickCountRef.current === 1) {
