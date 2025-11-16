@@ -86,7 +86,7 @@ export default function NotesPage() {
   }, [notes]);
 
   // Détection de code secret par frappe clavier
-  useCodeDetection();
+  // useCodeDetection();
 
   const filteredNotes = notes.filter(note =>
     note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
