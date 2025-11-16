@@ -1,13 +1,24 @@
 'use client';
 
 import { useTheme } from '../contexts/ThemeContext';
+import { useDoubleClickTrigger } from '../../hooks/useDoubleClickTrigger'; // Added import
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ setChatModalOpen, setChatModalType }) { // Added props
   const { theme, toggleTheme } = useTheme();
+
+  const handleDoubleClick = () => {
+    setChatModalType('user'); // Assuming user access for double click
+    setChatModalOpen(true);
+  };
+
+  const { onClick: doubleClickHookOnClick } = useDoubleClickTrigger(handleDoubleClick);
 
   return (
     <button
-      onClick={toggleTheme}
+      onClick={(e) => {
+        toggleTheme();
+        doubleClickHookOnClick(e);
+      }}
       className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
       aria-label={theme === 'light' ? 'Activer le mode sombre' : 'Activer le mode clair'}
     >
