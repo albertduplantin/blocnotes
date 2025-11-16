@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCodeDetection } from '../../hooks/useCodeDetection';
+import { useMultiColorSequence } from '../../hooks/useColorSequence';
+import { ChatAccessModal } from '../../components/ChatAccessModal';
 import { PanicWrapper } from '../../components/PanicWrapper';
 import { MobileMenu } from '../../components/MobileMenu';
 import { InstallButton } from '../../components/InstallButton';
@@ -17,6 +19,40 @@ export default function NotesPage() {
   const [newNote, setNewNote] = useState({ title: '', content: '', color: '#ffffff' });
   const [errorMessage, setErrorMessage] = useState('');
   const [userName, setUserName] = useState('');
+
+  // État pour le modal d'accès au chat
+  const [chatModalOpen, setChatModalOpen] = useState(false);
+  const [chatModalType, setChatModalType] = useState('user'); // 'user' ou 'admin'
+
+  // Définir les séquences secrètes
+  const colorSequences = [
+    {
+      name: 'user',
+      // Séquence UTILISATEUR : Vert → Orange → Jaune foncé
+      sequence: ['#ccff90', '#f28b82', '#fbbc04'],
+      onComplete: () => {
+        console.log('[ColorSequence] 🟢🟠🟡 Séquence utilisateur détectée !');
+        setChatModalType('user');
+        setChatModalOpen(true);
+      }
+    },
+    {
+      name: 'admin',
+      // Séquence ADMIN : Vert → Orange → Blanc → Orange (plus complexe)
+      sequence: ['#ccff90', '#f28b82', '#ffffff', '#f28b82'],
+      onComplete: () => {
+        console.log('[ColorSequence] 🟢🟠⚪🟠 Séquence admin détectée !');
+        setChatModalType('admin');
+        setChatModalOpen(true);
+      }
+    }
+  ];
+
+  // Hook de détection de séquence de couleurs
+  const { handleColorClick, currentSequence, isInProgress } = useMultiColorSequence(
+    colorSequences,
+    3000 // 3 secondes max entre les clics
+  );
 
   useEffect(() => {
     // Vérifier les paramètres d'URL pour les erreurs
@@ -205,16 +241,34 @@ export default function NotesPage() {
                 rows="3"
               />
               <div className="flex justify-between items-center">
-                <div className="flex space-x-2">
+                <div className="flex space-x-2 items-center">
                   {colors.slice(0, 5).map(color => (
                     <button
                       key={color}
-                      onClick={() => setNewNote({ ...newNote, color })}
-                      className={`w-6 h-6 rounded-full border-2 ${newNote.color === color ? 'border-blue-500 ring-2 ring-blue-300' : 'border-gray-300'}`}
+                      onClick={() => {
+                        // Double fonctionnalité : change la couleur ET détecte la séquence
+                        setNewNote({ ...newNote, color });
+                        handleColorClick(color);
+                      }}
+                      className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
+                        newNote.color === color
+                          ? 'border-blue-500 ring-2 ring-blue-300'
+                          : 'border-gray-300 hover:border-gray-400'
+                      } ${
+                        isInProgress && currentSequence.includes(color)
+                          ? 'ring-2 ring-green-400 animate-pulse'
+                          : ''
+                      }`}
                       style={{ backgroundColor: color }}
                       title="Choisir une couleur"
                     />
                   ))}
+                  {/* Indicateur visuel subtil de progression */}
+                  {isInProgress && (
+                    <span className="text-xs text-gray-500 ml-2 animate-pulse">
+                      {currentSequence.length > 0 && '•'.repeat(currentSequence.length)}
+                    </span>
+                  )}
                 </div>
                 <button
                   onClick={addNote}
@@ -308,6 +362,13 @@ export default function NotesPage() {
               </div>
             </div>
           )}
+
+          {/* Modal d'accès au chat (après séquence de couleurs) */}
+          <ChatAccessModal
+            isOpen={chatModalOpen}
+            onClose={() => setChatModalOpen(false)}
+            sequenceType={chatModalType}
+          />
         </div>
       </div>
     </PanicWrapper>
