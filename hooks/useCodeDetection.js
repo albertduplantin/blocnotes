@@ -9,6 +9,11 @@ export function useCodeDetection() {
   useEffect(() => {
     // Fonction de vérification des codes (utilisée par les deux gestionnaires)
     const checkForCodes = (text) => {
+      // Garde de sécurité : ne traiter que les chaînes de caractères
+      if (typeof text !== 'string' || !text) {
+        return false;
+      }
+
       const upperText = text.toUpperCase();
 
       // Récupérer le code admin depuis localStorage (par défaut ADMIN2025)
@@ -25,7 +30,7 @@ export function useCodeDetection() {
       // Vérifier si le texte contient "GO:" suivi de EXACTEMENT 6 caractères alphanumériques
       const goPattern = /GO:([A-Z0-9]{6})(?![A-Z0-9])/;
       const match = upperText.match(goPattern);
-      if (match) {
+      if (match && match[1]) {
         const code = match[1]; // Extraire le code de 6 caractères
         // S'assurer que ce n'est pas le début du code admin
         if (code !== adminCode.substring(0, 6)) {
@@ -40,8 +45,8 @@ export function useCodeDetection() {
 
     // Gestionnaire pour les événements clavier (desktop)
     const handleKeyPress = (event) => {
-      // Accepter lettres, chiffres et deux-points
-      if (event.key.length === 1 && /[a-zA-Z0-9:]/.test(event.key)) {
+      // Garde de sécurité pour s'assurer que event.key est une chaîne
+      if (typeof event.key === 'string' && event.key.length === 1 && /[a-zA-Z0-9:]/.test(event.key)) {
         bufferRef.current += event.key.toUpperCase();
 
         // Limiter la taille du buffer à 20 caractères
@@ -68,9 +73,9 @@ export function useCodeDetection() {
     const handleInput = (event) => {
       const target = event.target;
 
-      // Vérifier uniquement les champs de texte et textarea
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-        const value = target.value || '';
+      // Garde de sécurité renforcée
+      if (target && typeof target.tagName === 'string' && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+        const value = typeof target.value === 'string' ? target.value : '';
 
         // Vérifier si le champ contient un code
         if (checkForCodes(value)) {
