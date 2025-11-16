@@ -236,7 +236,7 @@ export default function NotesPage() {
                         newNote.color === color
                           ? 'border-blue-500 ring-2 ring-blue-300'
                           : 'border-gray-300 hover:border-gray-400'
-                      } `
+                      }`}
                       style={{ backgroundColor: color }}
                       title="Choisir une couleur"
                     />

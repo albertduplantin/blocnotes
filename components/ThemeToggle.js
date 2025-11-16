@@ -1,7 +1,7 @@
 'use client';
 
 import { useTheme } from '../contexts/ThemeContext';
-import { useDoubleClickTrigger } from '../../hooks/useDoubleClickTrigger'; // Added import
+import { useDoubleClickTrigger } from '../hooks/useDoubleClickTrigger'; // Added import
 
 export default function ThemeToggle({ setChatModalOpen, setChatModalType }) { // Added props
   const { theme, toggleTheme } = useTheme();
