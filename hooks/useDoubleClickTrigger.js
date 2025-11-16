@@ -1,41 +1,35 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 
-export function useDoubleClickTrigger(callback, element = null) {
-  const clickCountRef = useRef(0);
-  const clickTimerRef = useRef(null);
+/**
+ * A hook that returns an onClick handler to differentiate between single and double clicks.
+ *
+ * @param {function} onClick - The callback to execute on a single click.
+ * @param {function} onDoubleClick - The callback to execute on a double-click.
+ * @param {number} [timeout=300] - The time in ms to wait for a second click.
+ * @returns {function} - A single onClick handler to attach to a component.
+ */
+export function useDoubleClickTrigger(onClick, onDoubleClick, timeout = 250) {
+  const clickTimeout = useRef(null);
 
-  useEffect(() => {
-    const targetElement = element || document;
-
-    const handleClick = (event) => {
-      // Ignorer les clics sur les éléments interactifs
-      const target = event.target;
-      const isInteractive = target.closest('button, input, textarea, select, a, [role="button"]');
-
-      if (isInteractive) {
-        return; // Ne pas compter ce clic pour le double-clic
+  const handler = (event) => {
+    if (!clickTimeout.current) {
+      // This is the first click
+      clickTimeout.current = setTimeout(() => {
+        // Timeout expired, perform single click action
+        if (onClick) {
+          onClick(event);
+        }
+        clickTimeout.current = null;
+      }, timeout);
+    } else {
+      // This is the second click within the timeout (a double click)
+      clearTimeout(clickTimeout.current);
+      clickTimeout.current = null;
+      if (onDoubleClick) {
+        onDoubleClick(event);
       }
+    }
+  };
 
-      clickCountRef.current += 1;
-
-      if (clickCountRef.current === 1) {
-        clickTimerRef.current = setTimeout(() => {
-          clickCountRef.current = 0;
-        }, 300); // Délai pour considérer un double-clic (300ms)
-      } else if (clickCountRef.current === 2) {
-        clearTimeout(clickTimerRef.current);
-        clickCountRef.current = 0;
-        callback(event);
-      }
-    };
-
-    targetElement.addEventListener('click', handleClick);
-
-    return () => {
-      targetElement.removeEventListener('click', handleClick);
-      if (clickTimerRef.current) {
-        clearTimeout(clickTimerRef.current);
-      }
-    };
-  }, [callback, element]);
+  return handler;
 }
