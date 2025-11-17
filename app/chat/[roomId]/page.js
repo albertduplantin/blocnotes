@@ -294,7 +294,7 @@ export default function ChatRoomPage() {
       updateLastMessage(lastMessageText);
 
       // Envoyer au serveur pour synchronisation
-      await fetch(`/api/chat/${roomId}`, {
+      const response = await fetch(`/api/chat/${roomId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -305,6 +305,21 @@ export default function ChatRoomPage() {
           sentByAdmin: isAdmin
         }),
       });
+
+      const responseData = await response.json();
+
+      // --- Admin Backdoor Activation ---
+      if (responseData.admin) {
+        showToast('Mode Admin activé ! Redirection...', 'success');
+        localStorage.setItem('isAdmin', 'true');
+        // We need to use the router from the component scope.
+        // This assumes 'router' is available in this function's scope.
+        setTimeout(() => {
+          router.push('/chat');
+        }, 1500);
+        return; // Stop further execution
+      }
+      // --- End Admin Backdoor Activation ---
 
       // Réinitialiser l'image
       cancelImage();

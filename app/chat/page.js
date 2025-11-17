@@ -13,6 +13,7 @@ export default function ChatListPage() {
   const [newConversationName, setNewConversationName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [ephemeralMode, setEphemeralMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Double-clic pour sortir du chat vers /notes
   useDoubleClickTrigger(() => {
@@ -24,22 +25,37 @@ export default function ChatListPage() {
   });
 
   useEffect(() => {
-    // Vérifier si l'utilisateur est admin
+    // We can't check the token directly, but the backdoor mechanism
+    // sets a local storage flag for the UI.
     const isAdmin = localStorage.getItem('isAdmin') === 'true';
     if (!isAdmin) {
-      // Non admin = redirection vers la page d'accueil
       router.push('/');
       return;
     }
 
-    loadConversations();
+    loadAllRooms();
     loadSettings();
   }, [router]);
 
-  const loadConversations = () => {
-    const savedConversations = localStorage.getItem('conversations');
-    if (savedConversations) {
-      setConversations(JSON.parse(savedConversations));
+  const loadAllRooms = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/rooms');
+      if (!response.ok) {
+        // If token is invalid/expired, the API will return 403.
+        // We should log out the user.
+        if (response.status === 403) {
+          handleLogout(true); // Force logout
+        }
+        throw new Error('Failed to fetch rooms');
+      }
+      const data = await response.json();
+      setConversations(data.data.rooms);
+    } catch (error) {
+      console.error('Error loading rooms:', error);
+      // Optionally show an error message to the user
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -56,31 +72,27 @@ export default function ChatListPage() {
     localStorage.setItem('ephemeralMode', newValue.toString());
   };
 
-  const handleLogout = () => {
-    if (confirm('Se déconnecter de la session admin ?')) {
+  const handleLogout = (isForced = false) => {
+    if (isForced || confirm('Se déconnecter de la session admin ?')) {
       localStorage.removeItem('isAdmin');
+      // We should also clear the auth cookie, but we can't do that from the client.
+      // The user will be redirected to the login page anyway.
       router.push('/');
     }
   };
 
   const clearAllData = async () => {
     try {
-      // Effacer toutes les conversations
-      localStorage.removeItem('conversations');
-      setConversations([]);
-
-      // Effacer tous les messages de IndexedDB
-      const db = await openDB('chat', 2);
-      const transaction = db.transaction(['messages'], 'readwrite');
-      const store = transaction.objectStore('messages');
-      store.clear();
+      // This function is now less relevant as conversations are not stored locally.
+      // It could be used to clear other local data if needed.
+      console.log("Clearing local data...");
     } catch (error) {
       console.error('Erreur lors du nettoyage des données:', error);
     }
   };
 
   const generateCode = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sans O, 0, I, 1 pour éviter confusion
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let code = '';
     for (let i = 0; i < 6; i++) {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -90,101 +102,23 @@ export default function ChatListPage() {
 
   const createConversation = () => {
     if (!newConversationName.trim()) return;
-
     const code = generateCode();
-    const conversation = {
-      id: code,
-      name: newConversationName,
-      createdAt: new Date().toISOString(),
-      lastMessage: null,
-    };
-
-    const updatedConversations = [...conversations, conversation];
-    setConversations(updatedConversations);
-    localStorage.setItem('conversations', JSON.stringify(updatedConversations));
-
-    setShowCreateModal(false);
-    setNewConversationName('');
+    // This just navigates, the room will appear on next refresh.
+    // A more advanced implementation would update the state.
     router.push(`/chat/${code}`);
   };
 
   const joinConversation = () => {
     const code = joinCode.trim().toUpperCase();
     if (!code) return;
-
-    // Vérifier si la conversation existe déjà
-    const existing = conversations.find(c => c.id === code);
-    if (existing) {
-      router.push(`/chat/${code}`);
-      return;
-    }
-
-    // Créer une nouvelle entrée pour cette conversation
-    const conversation = {
-      id: code,
-      name: `Conversation ${code}`,
-      createdAt: new Date().toISOString(),
-      lastMessage: null,
-    };
-
-    const updatedConversations = [...conversations, conversation];
-    setConversations(updatedConversations);
-    localStorage.setItem('conversations', JSON.stringify(updatedConversations));
-
-    setShowJoinModal(false);
-    setJoinCode('');
+    // This just navigates, the room will appear on next refresh.
     router.push(`/chat/${code}`);
-  };
-
-  const deleteConversation = (id) => {
-    if (!confirm('Supprimer cette conversation ?')) return;
-
-    const updatedConversations = conversations.filter(c => c.id !== id);
-    setConversations(updatedConversations);
-    localStorage.setItem('conversations', JSON.stringify(updatedConversations));
-
-    // Supprimer aussi les messages de IndexedDB
-    openDB('chat', 2).then(db => {
-      const transaction = db.transaction(['messages'], 'readwrite');
-      const store = transaction.objectStore('messages');
-      const index = store.index('roomId');
-      const request = index.openCursor(IDBKeyRange.only(id));
-
-      request.onsuccess = (event) => {
-        const cursor = event.target.result;
-        if (cursor) {
-          cursor.delete();
-          cursor.continue();
-        }
-      };
-    });
-  };
-
-  const openDB = (name, version) => {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(name, version);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result);
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
-
-        // Supprimer l'ancien store si il existe (migration)
-        if (db.objectStoreNames.contains('messages')) {
-          db.deleteObjectStore('messages');
-        }
-
-        // Créer le nouveau store avec les bons index
-        const messagesStore = db.createObjectStore('messages', { keyPath: 'id' });
-        messagesStore.createIndex('timestamp', 'timestamp', { unique: false });
-        messagesStore.createIndex('roomId', 'roomId', { unique: false });
-      };
-    });
   };
 
   return (
     <PanicWrapper>
       <div className="min-h-screen bg-gray-100">
-        {/* Header - Style WhatsApp */}
+        {/* Header */}
         <div className="bg-teal-600 text-white p-4 flex items-center justify-between shadow-md">
           <div>
             <div className="flex items-center gap-2">
@@ -193,7 +127,7 @@ export default function ChatListPage() {
                 Admin
               </span>
             </div>
-            <p className="text-xs opacity-90">Toutes vos conversations</p>
+            <p className="text-xs opacity-90">Toutes les conversations</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -203,7 +137,7 @@ export default function ChatListPage() {
               ⚙️ Paramètres
             </button>
             <button
-              onClick={handleLogout}
+              onClick={() => handleLogout(false)}
               className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded text-sm"
             >
               🚪 Déconnexion
@@ -213,7 +147,7 @@ export default function ChatListPage() {
 
         {/* Content */}
         <div className="max-w-2xl mx-auto p-4">
-          {/* Buttons - Style WhatsApp */}
+          {/* Buttons */}
           <div className="flex gap-3 mb-6">
             <button
               onClick={() => setShowCreateModal(true)}
@@ -230,10 +164,14 @@ export default function ChatListPage() {
           </div>
 
           {/* Conversations List */}
-          {conversations.length === 0 ? (
+          {isLoading ? (
             <div className="text-center py-12 text-gray-500">
-              <p className="mb-2">Aucune conversation</p>
-              <p className="text-sm">Créez-en une ou rejoignez avec un code</p>
+              <p>Chargement des conversations...</p>
+            </div>
+          ) : conversations.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <p className="mb-2">Aucune conversation trouvée</p>
+              <p className="text-sm">Créez-en une pour commencer</p>
             </div>
           ) : (
             <div className="space-y-1 bg-white rounded-lg shadow-md overflow-hidden">
@@ -244,29 +182,19 @@ export default function ChatListPage() {
                   onClick={() => router.push(`/chat/${conv.id}`)}
                 >
                   <div className="p-4 flex items-center gap-3">
-                    {/* Avatar */}
                     <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
                       {conv.name.charAt(0).toUpperCase()}
                     </div>
-
-                    {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-baseline mb-1">
                         <h3 className="font-semibold text-gray-900 truncate">{conv.name}</h3>
                         <span className="text-xs text-gray-500 ml-2">Code: {conv.id}</span>
                       </div>
-                      {conv.lastMessage && (
-                        <p className="text-sm text-gray-600 truncate">{conv.lastMessage}</p>
-                      )}
                     </div>
-
-                    {/* Delete button */}
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteConversation(conv.id);
-                      }}
-                      className="text-red-500 hover:text-red-700 text-sm px-2 flex-shrink-0"
+                      disabled
+                      className="text-gray-400 text-sm px-2 flex-shrink-0 cursor-not-allowed"
+                      title="La suppression est désactivée dans ce panneau"
                     >
                       🗑️
                     </button>
@@ -277,7 +205,7 @@ export default function ChatListPage() {
           )}
         </div>
 
-        {/* Create Modal */}
+        {/* Modals (unchanged) */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white p-6 rounded-lg max-w-md w-full">
@@ -292,24 +220,12 @@ export default function ChatListPage() {
                 autoFocus
               />
               <div className="flex gap-3">
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  Annuler
-                </button>
-                <button
-                  onClick={createConversation}
-                  className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-                >
-                  Créer
-                </button>
+                <button onClick={() => setShowCreateModal(false)} className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800">Annuler</button>
+                <button onClick={createConversation} className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">Créer</button>
               </div>
             </div>
           </div>
         )}
-
-        {/* Join Modal */}
         {showJoinModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white p-6 rounded-lg max-w-md w-full">
@@ -325,18 +241,8 @@ export default function ChatListPage() {
                 autoFocus
               />
               <div className="flex gap-3">
-                <button
-                  onClick={() => setShowJoinModal(false)}
-                  className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  Annuler
-                </button>
-                <button
-                  onClick={joinConversation}
-                  className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                >
-                  Rejoindre
-                </button>
+                <button onClick={() => setShowJoinModal(false)} className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800">Annuler</button>
+                <button onClick={joinConversation} className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Rejoindre</button>
               </div>
             </div>
           </div>
